@@ -61,8 +61,11 @@ class FSGuiDependencyGraphWidget(qtgui.GuiZeroMarginVBoxLayoutWidget):
         """
         """
         super().__init__()
-        filename = graphviz_graph.render(format='svg')  
-        widget = QtSvgWidgets.QSvgWidget(filename)
+
+        content = graphviz_graph.pipe(encoding='utf-8', format='svg')
+        widget = QtSvgWidgets.QSvgWidget()
+        widget.load(bytes(content, encoding='utf-8'))
+
         self.layout().addWidget(widget)
 
 class FSGuiRootEditor(qtgui.GuiVBoxContainer):
