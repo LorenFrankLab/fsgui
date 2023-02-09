@@ -177,12 +177,15 @@ class FSGuiApplication:
             if vartype in ['node:float', 'node:bool', 'node:point2d']:
                 return [param_value]
             elif vartype == 'node:tree':
-                list_ids = []
+                if param_value is None:
+                    return []
 
+                list_ids = []
                 bfs_queue = [param_value]
 
                 while len(bfs_queue) > 0:
                     current_node = bfs_queue.pop()
+
                     if current_node['data']['type'] == 'filter':
                         list_ids.append(current_node['data']['value'])
 
