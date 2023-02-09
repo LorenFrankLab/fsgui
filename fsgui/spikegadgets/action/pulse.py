@@ -2,6 +2,7 @@ import multiprocessing as mp
 import fsgui.process
 import fsgui.node
 import fsgui.spikegadgets.trodesnetwork as trodesnetwork
+import fsgui.spikegadgets.action.shortcut
 
 import time
 
@@ -313,7 +314,7 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
             'command': script,
         })
 
-        return StateScriptFunctionActionProcess(
+        return fsgui.spikegadgets.action.shortcut.StateScriptFunctionActionProcess(
             sub_addresses=address_map,
             filter_tree=config['filter_id'],
             network_location=self.network_location,
