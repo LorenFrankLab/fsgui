@@ -97,7 +97,7 @@ class GeometryFilterType(fsgui.node.NodeTypeObject):
             [(x * width, y * height) for x, y in geometry_file.get_inclusion_zone[0].polygon.nodes]
         )
 
-        return GeometryFilterProcess(pub_address, shapely_polygon)
+        return GeometryFilterProcess(pub_address, poly)
 
 class GeometryFilterProcess:
     def __init__(self, source_pub_address, shapely_polygon):
