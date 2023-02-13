@@ -157,7 +157,6 @@ class FSGuiWindow(QtWidgets.QWidget):
         self.layout().addWidget(log_text_widget)
 
         self.selected_instance_id = None
-        self.app.build_all()
         self.__refresh_list()
 
     
