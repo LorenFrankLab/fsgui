@@ -17,7 +17,7 @@ class WidgetLoggingHandler(logging.Handler):
             level_string = {
                 'DEBUG': '<font color="green">{}</font>',
                 'INFO': '{}',
-                'WARNING': '<font color="orang">{}</font>',
+                'WARNING': '<font color="orange">{}</font>',
                 'ERROR': '<font color="red">{}</font>',
             }.get(record.levelname, '{}').format(record.levelname)
 
