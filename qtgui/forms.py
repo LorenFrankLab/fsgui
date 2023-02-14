@@ -31,6 +31,9 @@ class GuiFormSelectWidget(QtWidgets.QComboBox):
         super().__init__()
         if options is None:
             options = []
+
+        options = [{'name': None, 'label': 'None'}] + options
+        
         self.nameMap = {i: option['name'] for i, option in enumerate(options)}
 
         for option in options:
