@@ -64,6 +64,7 @@ class FSGuiDependencyGraphWidget(qtgui.GuiZeroMarginVBoxLayoutWidget):
 
         content = graphviz_graph.pipe(encoding='utf-8', format='svg')
         widget = QtSvgWidgets.QSvgWidget()
+        widget.renderer().setAspectRatioMode(QtCore.Qt.AspectRatioMode.KeepAspectRatio)
         widget.load(bytes(content, encoding='utf-8'))
 
         self.layout().addWidget(widget)
