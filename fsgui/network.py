@@ -28,6 +28,11 @@ class UnidirectionalChannelReceiver:
         self._poller = zmq.Poller()
         self._poller.register(self._sock)
 
+    @property
+    def sock(self):
+        # used for polling outside
+        return self._sock
+
     def recv(self, timeout=None):
         polled = self._poller.poll(timeout)
         if len(polled) > 0:

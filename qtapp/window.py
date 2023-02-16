@@ -176,7 +176,9 @@ class FSGuiWindow(QtWidgets.QWidget):
         self.log_handler.cleanup()
 
     def __update_graph(self):
-        dot = graphviz.Digraph(comment='Dependency graph', engine='fdp') 
+        dot = graphviz.Digraph(comment='Dependency graph', engine='dot') 
+        dot.attr(rankdir='RL')
+
 
         previous = None
 
@@ -185,6 +187,8 @@ class FSGuiWindow(QtWidgets.QWidget):
             for child_id in self.app.get_node_children_ids(node_id):
                 if child_id is not None:
                     dot.edge(child_id, node_id, constraint='false')
+
+        dot = dot.unflatten(stagger=3, fanout=True, chain=3)
  
         self.graph_container.setWidget(qtapp.component.FSGuiDependencyGraphWidget(dot))
 
@@ -236,10 +240,14 @@ class FSGuiWindow(QtWidgets.QWidget):
             return [
                 {'name': node.instance_id, 'label': node.param_config['nickname']}
                 for node in self.app.get_nodes_datatype(datatype)]
-
+            
         form_extra = [
             ('node:float', lambda i: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('float'), default=i.get('default'))),
             ('node:discrete_distribution', lambda i: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('discrete_distribution'), default=i.get('default'))),
+            ('node:bin_id', lambda i: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('bin_id'), default=i.get('default'))),
+            ('node:bool', lambda i: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('bool'), default=i.get('default'))),
+            ('node:spikes', lambda i: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('spikes'), default=i.get('default'))),
+            ('node:timestamp', lambda i: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('timestamp'), default=i.get('default'))),
             ('node:point2d', lambda i: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('point2d'), default=i.get('default'))),
             ('node:tree', lambda i: qtapp.component.FSGuiFilterSelectionWidget(filters=get_options_datatype('bool'), default=i.get('default'))),
             ('geometry', lambda i: qtapp.component.FSGuiGeometrySelectionWidget(default=i.get('default'))),

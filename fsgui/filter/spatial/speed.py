@@ -82,15 +82,6 @@ class SpeedFilterType(fsgui.node.NodeTypeObject):
                 'decimals': 2,
                 'units': 'cm/sec'
             },
-            {
-                'label': 'Min On/Off Length',
-                'name': 'lockoutTime',
-                'type': 'integer',
-                'lower': 0,
-                'upper': 100000,
-                'default': config['lockoutTime'],
-                'units': 'timestamps'
-            },
         ]
 
     def build(self, config, addr_map):

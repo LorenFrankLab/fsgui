@@ -123,6 +123,67 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 'default': config['detectNoRipplesTime']
             },
         ]
+    
+    def build(self, config, addr_map):
+        source_id = config['source_id']
+        pub_address = addr_map[source_id]
+        
+        coefficients = RippleFilterCoefficients19()
+        params = RippleFilterParams(
+            ripCoeff1=config['ripCoeff1'],
+            ripCoeff2=config['ripCoeff2'],
+            ripple_threshold=config['ripThresh'],
+            sampDivisor=config['sampleDivisor'],
+            n_above_thresh=config['nAboveThresh'],
+            lockoutTime=config['lockoutTime'],
+            detectNoRippleTime=config['detectNoRipplesTime'],
+            dioGatePort=None,
+            detectNoRipples=config['detectNoRipples'],
+            dioGate=None,
+            enabled=None,
+            useCustomBaseline=None,
+            updateCustomBaseline=None
+        )
+
+        rip_filter = RippleFilter(
+            num_tetrodes=16,
+            coefficients=coefficients,
+            params=params,
+            num_last_values=20
+        )
+
+        return RippleFilterProcess(pub_address, rip_filter)
+
+class RippleFilterProcess:
+    def __init__(self, source_pub_address, rip_filter):
+        pipe_recv, pipe_send = mp.Pipe(duplex=False)
+
+        def setup(data):
+            data['sub'] = fsgui.network.UnidirectionalChannelReceiver(source_pub_address)
+            data['publisher'] = fsgui.network.UnidirectionalChannelSender()
+            pipe_send.send(data['publisher'].get_location())
+            data['filter_model'] = rip_filter
+
+        def workload(data):
+            item = data['sub'].recv(timeout=500)
+            if item is not None:
+                lfps=json.loads(item)['lfpData']
+
+                # TODO: change the run_update_mean_sd and run_calculate_v
+                for n_trode_id, value in enumerate(lfps):
+                    triggered = data['filter_model'].process_ripple_data(n_trode_id, value, run_update_mean_sd=True, run_calculate_v=True)
+
+                if triggered:
+                    print(f'ripple: {triggered}')
+
+                data['publisher'].send(f'{triggered}')
+
+        def cleanup(data):
+            pipe_send.close()
+
+        self._proc = fsgui.process.ProcessObject({}, setup, workload, cleanup)
+        self._proc.start()
+        self.pub_address = pipe_recv.recv()
 
 class RippleFilterCoefficients19:
     def __init__(self):
@@ -248,7 +309,7 @@ class RippleFilter:
         self.filtind[ntrodeid] %= self.coefficients.length
         return val
 
-    def process_ripple_data(self, ntrodeid, d, calculate_v, run_update_mean_sd=True, run_calculate_v=True):
+    def process_ripple_data(self, ntrodeid, d, run_update_mean_sd=True, run_calculate_v=True):
         """
         d: the input signal, which could be linearly ramped during lockout
 
@@ -278,8 +339,8 @@ class RippleFilter:
         ripple_signal: the absolute value of the ripple filtered
         """
         diff = ripple_signal - self.rippleMean[ntrodeid]
-        self.rippleMean[ntrodeid] += diff / self.params.sampleDivisor
-        self.rippleSd[ntrodeid] += (abs(diff) - self.rippleSd[ntrodeid]) / self.params.sampleDivisor
+        self.rippleMean[ntrodeid] += diff / self.params.sampDivisor
+        self.rippleSd[ntrodeid] += (abs(diff) - self.rippleSd[ntrodeid]) / self.params.sampDivisor
 
     def calculate_v(self, ntrodeid, ripple_signal):
         df = ripple_signal - self.current_val[ntrodeid]

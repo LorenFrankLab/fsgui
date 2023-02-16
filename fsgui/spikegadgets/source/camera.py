@@ -3,7 +3,8 @@ import fsgui.process
 import fsgui.node
 import fsgui.spikegadgets.trodes
 import logging
-
+import fsgui.spikegadgets.trodesnetwork as trodesnetwork
+import fsgui.network
  
 class CameraDataType(fsgui.node.NodeTypeObject):
     def __init__(self, type_id, network_location):
@@ -46,8 +47,7 @@ class CameraDataType(fsgui.node.NodeTypeObject):
         ]
     
     def build(self, config, addr_map):
-        # import fsgui.spikegadgets.trodesnetwork as trodesnetwork
-        # trodesnetwork.SourceSubscriber('source.position', server_address = f'{self.network_location.address}:{self.network_location.port}')
+        trodesnetwork.SourceSubscriber('source.position', server_address = f'{self.network_location.address}:{self.network_location.port}')
         return CameraSource(network_location = self.network_location)
 
 class CameraSource:
@@ -57,8 +57,6 @@ class CameraSource:
         import time
 
         def setup(data):
-            import fsgui.network
-            import fsgui.spikegadgets.trodesnetwork as trodesnetwork
             data['publisher'] = fsgui.network.UnidirectionalChannelSender()
             pipe_send.send(data['publisher'].get_location())
 

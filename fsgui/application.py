@@ -174,9 +174,7 @@ class FSGuiApplication:
         type_dict = self.__get_param_type_dict(instance_id)
 
         def get_instance_ids(param_value, vartype):
-            if vartype in ['node:float', 'node:bool', 'node:point2d']:
-                return [param_value]
-            elif vartype == 'node:tree':
+            if vartype == 'node:tree':
                 if param_value is None:
                     return []
 
@@ -193,13 +191,16 @@ class FSGuiApplication:
                         bfs_queue.append(child)
                 
                 return list_ids
+            if vartype in ['node:float', 'node:bool', 'node:point2d', 'node:bin_id', 'node:spikes', 'node:bin_id', 'node:discrete_distribution', 'node:timestamp']:
+                return [param_value]
             else:
-                raise ValueError('unknown vartype')
+                logging.warning(f'vartype not explicitly listed to be handled: {vartype}')
+                return [param_value]
 
         return list(itertools.chain.from_iterable([
             get_instance_ids(node.param_config[varname], vartype)
             for varname, vartype in type_dict.items() 
-            if vartype in ['node:float', 'node:bool', 'node:point2d', 'node:tree']]))
+            if vartype.startswith('node:')]))
 
     def __get_child_address_map(self, instance_id):
         return {

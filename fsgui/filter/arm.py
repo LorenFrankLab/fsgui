@@ -1,22 +1,18 @@
-import multiprocessing as mp
-import numpy as np
-import fsgui.process
 import fsgui.node
-import json
-import shapely
 
-class ContentFilterType(fsgui.node.NodeTypeObject):
+class ArmFilterType(fsgui.node.NodeTypeObject):
     def __init__(self, type_id):
+        name='Arm filter type'
         super().__init__(
             type_id=type_id,
             node_class='filter',
-            name='Content Filter',
-            datatype='bool',
+            name=name,
+            datatype='discrete_distribution',
             default= {
                 'type_id': type_id,
                 'instance_id': '',
-                'nickname': 'Content filter',
-                'source_id': None,
+                'nickname': name,
+                'posterior_source': None,
             }
         )
 
@@ -42,10 +38,10 @@ class ContentFilterType(fsgui.node.NodeTypeObject):
                 'tooltip': 'This is the name the source is displayed as in menus.',
             },
             {
-                'label': 'Source',
-                'name': 'source_id',
-                'type': 'node:float',
-                'default': config['source_id'],
-                'tooltip': 'Source to receive LFP data',
+                'label': 'Posterior source',
+                'name': 'posterior_source',
+                'type': 'node:discrete_distribution',
+                'default': config['posterior_source'],
+                'tooltip': 'This node a distribution of a posterior to be summed.',
             },
         ]

@@ -28,7 +28,8 @@ if __name__ == "__main__":
             node_providers = [
                 fsgui.spikegadgets.SpikeGadgetsNodeProvider(network_location=network),
                 fsgui.filter.FilterProvider(),
+                fsgui.mock.MockNodeProvider(),
             ],
-            config = fsgui.config.FileConfig('sample_config.json'),
+            config = fsgui.config.FileConfig('config.yaml'),
         )
     ))

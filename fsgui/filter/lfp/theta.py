@@ -2,6 +2,8 @@ import multiprocessing as mp
 import numpy as np
 import fsgui.process
 import fsgui.node
+import json
+import logging
 
 class ThetaFilterType(fsgui.node.NodeTypeObject):
     def __init__(self, type_id):
@@ -17,7 +19,8 @@ class ThetaFilterType(fsgui.node.NodeTypeObject):
                 'source_id': None,
                 'filterDelay': 730,
                 'thetaPhase': 0,
-                # 'mode': 'live',
+                'tetrode_id': 0,
+                'sample_rate': 30000,
             }
         )
 
@@ -66,8 +69,75 @@ class ThetaFilterType(fsgui.node.NodeTypeObject):
                 'upper': 360*4,
                 'default': config['thetaPhase'],
                 'units': 'deg',
-            }
+            },
+            {
+                'label': 'Tetrode id',
+                'name': 'tetrode_id',
+                'type': 'integer',
+                'lower': 0,
+                'upper': 20000,
+                'default': config['tetrode_id'],
+            },
+            {
+                'label': 'Sample rate (Hz)',
+                'name': 'sample_rate',
+                'type': 'integer',
+                'lower': 0,
+                'upper': 100000,
+                'default': config['sample_rate'],
+                'units': 'Hz',
+            },
         ]
+
+    def build(self, config, addr_map):
+        source_id = config['source_id']
+        pub_address = addr_map[source_id]
+        
+        coefficients = ThetaFilterCoefficientsDefault()
+        params = ThetaFilterParams(targetPhase=config['thetaPhase'])
+
+        theta_filter = ThetaFilter(coefficients=coefficients, params=params, sample_rate=config['sample_rate'])
+
+        return ThetaFilterProcess(pub_address, theta_filter, tetrode_id=config['tetrode_id'])
+
+class ThetaFilterProcess:
+    def __init__(self, source_pub_address, theta_filter, tetrode_id):
+        pipe_recv, pipe_send = mp.Pipe(duplex=False)
+
+        def setup(data):
+            data['sub'] = fsgui.network.UnidirectionalChannelReceiver(source_pub_address)
+            data['publisher'] = fsgui.network.UnidirectionalChannelSender()
+            pipe_send.send(data['publisher'].get_location())
+            data['filter_model'] = theta_filter
+            data['receive_none_counter'] = 0
+
+        def workload(data):
+            item = data['sub'].recv(timeout=500)
+            if item is None:
+                data['receive_none_counter'] += 1
+                if data['receive_none_counter'] >= 5 and data['receive_none_counter'] % 5 == 0:
+                    print(f'Theta filter process has not received any LFP data for a while...')
+            else:
+                data['receive_none_counter'] = 0
+
+                json_item = json.loads(item)
+                lfps=json_item['lfpData']
+
+                lfpVal = lfps[tetrode_id]
+                sampleTime=json_item['localTimestamp']
+
+                triggered, fLFP, nextTrigger, sampleTime, periodEstimate = data['filter_model'].process_theta_data(lfpVal, sampleTime)
+
+                print(f'trig: {triggered} flfp: {fLFP} next: {nextTrigger} samp: {sampleTime} period est: {periodEstimate}')
+                data['publisher'].send(f'{triggered}')
+            
+
+        def cleanup(data):
+            pipe_send.close()
+
+        self._proc = fsgui.process.ProcessObject({}, setup, workload, cleanup)
+        self._proc.start()
+        self.pub_address = pipe_recv.recv()
 
 class ThetaFilterParams:
     def __init__(self, targetPhase):
@@ -88,8 +158,10 @@ class ThetaFilterCoefficientsDefault:
         ], dtype='double')
 
 class ThetaFilter:
-    def __init__(self, coefficients):
+    def __init__(self, coefficients, params, sample_rate):
         self.coefficients = coefficients
+        self.params = params
+        self.sample_rate = sample_rate
 
         # current filter state
         self.z = np.zeros(shape=(self.coefficients.length,), dtype='double')
@@ -118,15 +190,15 @@ class ThetaFilter:
         else:
             raise ValueError(f'Invalid target phase: {self.params.targetPhase}')
 
-    def filter_data(self, lfp):
+    def __filter_data(self, lfp):
         fLFP = self.coefficients.numerator[0] * lfp + self.z[0]
         for i in range(1, self.coefficients.length):
             # update the filter state for the next iteration
             self.z[i-1] = self.coefficients.numerator[i] * lfp + self.z[i] - self.coefficients.denominator[i]*fLFP
         return fLFP
     
-    def process_theta_data(lfpVal, sampleTime):
-        fLFPCurrent = self.filter_data(lfpVal)
+    def process_theta_data(self, lfpVal, sampleTime):
+        fLFPCurrent = self.__filter_data(lfpVal)
 
         if fLFPCurrent >= 0 and self.fLFPLast < 0:
             # signal rising edge, zero crossing
@@ -141,7 +213,6 @@ class ThetaFilter:
         
         self.fLFPLast = fLFPCurrent
 
-        if self.nextTrigger is not None:
-            return self.nextTrigger <= sampleTime
-        else:
-            return False
+        triggered = self.nextTrigger <= sampleTime if self.nextTrigger is not None else False
+
+        return triggered, self.fLFPLast, self.nextTrigger, sampleTime, self.periodEstimate

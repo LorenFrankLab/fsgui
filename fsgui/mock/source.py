@@ -6,14 +6,6 @@ import random
 import time
 import json
 
-class MockSourceProvider:
-    def get_nodes(self):
-        return [
-            RandomGeneratorType('mock-data-type'),
-            MockGamePositionType('mock-game-position-type'),
-            LFPPlaybackType('lfp-playback-type'),
-        ]
-
 class RandomGeneratorType(fsgui.node.NodeTypeObject):
     def __init__(self, type_id):
         super().__init__(
@@ -75,6 +67,69 @@ class RandomGeneratorProcess:
             pipe_send.close()
 
         self._enabled = False
+        self._proc = fsgui.process.ProcessObject({}, setup, workload, cleanup)
+        self._proc.start()
+
+        self.pub_address = pipe_recv.recv()
+
+class BinGeneratorType(fsgui.node.NodeTypeObject):
+    def __init__(self, type_id):
+        name='Bin generator type'
+        super().__init__(
+            type_id=type_id,
+            node_class='source',
+            name=name,
+            datatype='bin_id',
+            default= {
+                'type_id': type_id,
+                'instance_id': '',
+                'nickname': name,
+            }
+        )
+
+    def write_template(self, config = None):
+        if config is None:
+            config = self.default()
+
+        return [
+            {
+                'name': 'type_id',
+                'type': 'hidden',
+                'default': config['type_id'],
+            },
+            {
+                'name': 'instance_id',
+                'type': 'hidden',
+                'default': config['instance_id'],
+            },
+            {
+                'label': 'Nickname',
+                'name': 'nickname',
+                'type': 'string',
+                'default': config['nickname'],
+                'tooltip': 'This is the name the source is displayed as in menus.',
+            },
+        ]
+    
+    def build(self, config, param_map):
+        return BinGeneratorProcess()
+
+class BinGeneratorProcess:
+    def __init__(self):
+        pipe_recv, pipe_send = mp.Pipe(duplex=False)
+
+        def setup(data):
+            data['publisher'] = fsgui.network.UnidirectionalChannelSender()
+            pipe_send.send(data['publisher'].get_location())
+
+        def workload(data):
+            value = random.choice(range(20))
+            data['publisher'].send(f'{value}')
+            time.sleep(0.01)
+
+        def cleanup(data):
+            pipe_send.close()
+
         self._proc = fsgui.process.ProcessObject({}, setup, workload, cleanup)
         self._proc.start()
 
