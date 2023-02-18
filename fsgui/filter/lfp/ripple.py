@@ -4,6 +4,7 @@ import fsgui.process
 import fsgui.node
 import json
 import shapely
+import time
 
 
 class RippleFilterType(fsgui.node.NodeTypeObject):
@@ -165,13 +166,17 @@ class RippleFilterProcess:
             data['filter_model'] = rip_filter
 
         def workload(data):
+            t0 = time.time()
+
+
             item = data['sub'].recv(timeout=500)
             if item is not None:
                 lfps=json.loads(item)['lfpData']
 
-                # TODO: change the run_update_mean_sd and run_calculate_v
-                for n_trode_id, value in enumerate(lfps):
-                    triggered = data['filter_model'].process_ripple_data(n_trode_id, value, run_update_mean_sd=True, run_calculate_v=True)
+                t1 = time.time()
+                triggered = data['filter_model'].process_ripple_data(lfps)
+                t2 = time.time() - t1
+                print(f'sum: {t2}')
 
                 if triggered:
                     print(f'ripple: {triggered}')
@@ -309,7 +314,12 @@ class RippleFilter:
         self.filtind[ntrodeid] %= self.coefficients.length
         return val
 
-    def process_ripple_data(self, ntrodeid, d, run_update_mean_sd=True, run_calculate_v=True):
+    def process_ripple_data(self, lfps, run_update_mean_sd=True, run_calculate_v=True):
+        for n_trode_id, value in enumerate(lfps):
+            triggered = self.__single_process_ripple_data(n_trode_id, value, run_update_mean_sd, run_calculate_v)
+        return triggered
+
+    def __single_process_ripple_data(self, ntrodeid, d, run_update_mean_sd=True, run_calculate_v=True):
         """
         d: the input signal, which could be linearly ramped during lockout
 
