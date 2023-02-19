@@ -125,7 +125,7 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                 'tooltip': 'Time in milliseconds from the onset of one pulse/pulse sequence to the onset of the next.',
             },
             {
-                'label': 'Primary',
+                'label': 'Primary pin',
                 'name': 'primaryBit',
                 'type': 'integer',
                 'lower': 1,
@@ -314,13 +314,23 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
             'command': script,
         })
 
-        return fsgui.spikegadgets.action.shortcut.StateScriptFunctionActionProcess(
+        # return fsgui.spikegadgets.action.shortcut.StateScriptFunctionActionProcess(
+        #     sub_addresses=address_map,
+        #     filter_tree=config['filter_id'],
+        #     network_location=self.network_location,
+        #     lockout_time=config['lockout_time'],
+        #     funct_num=funct_num
+        # )
+
+        return DigitalPulseWaveActionProcess(
             sub_addresses=address_map,
             filter_tree=config['filter_id'],
             network_location=self.network_location,
             lockout_time=config['lockout_time'],
             funct_num=funct_num
         )
+
+
 
 class DigitalPulseWaveActionProcess:
     def __init__(self,
@@ -345,6 +355,7 @@ class DigitalPulseWaveActionProcess:
             data['trodes_sender'] = trodesnetwork.ServiceConsumer('trodes.hardware', server_address = f'{network_location.address}:{network_location.port}')
 
             data['last_triggered'] = None
+            data['currently_triggered'] = False
 
         def workload(data):
             # loop updates all of the sub_values
@@ -375,6 +386,17 @@ class DigitalPulseWaveActionProcess:
                     'HRSCTrig',
                     {'fn': funct_num}
                 ])
+                data['currently_triggered'] = True
+            elif not evaluation and data['currently_triggered']:
+                data['trodes_sender'].request([
+                    'tag',
+                    'HRSCTrig',
+                    {'fn': funct_num + 1}
+                ])
+                data['currently_triggered'] = False
+                data['last_triggered'] = None
+ 
+                
 
         def cleanup(data):
             pass
