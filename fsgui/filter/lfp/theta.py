@@ -111,6 +111,10 @@ class ThetaFilterProcess:
             data['filter_model'] = theta_filter
             data['receive_none_counter'] = 0
 
+            data['live_publisher'] = fsgui.network.UnidirectionalChannelSender()
+            print(data['live_publisher'].get_location())
+
+
         def workload(data):
             item = data['sub'].recv(timeout=500)
             if item is None:
@@ -128,7 +132,7 @@ class ThetaFilterProcess:
 
                 triggered, fLFP, nextTrigger, sampleTime, periodEstimate = data['filter_model'].process_theta_data(lfpVal, sampleTime)
 
-                print(f'trig: {triggered} flfp: {fLFP} next: {nextTrigger} samp: {sampleTime} period est: {periodEstimate}')
+                data['live_publisher'].send(f'trig: {triggered} flfp: {fLFP} next: {nextTrigger} samp: {sampleTime} period est: {periodEstimate}')
                 data['publisher'].send(f'{triggered}')
             
 
