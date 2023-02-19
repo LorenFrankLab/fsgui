@@ -5,6 +5,7 @@ import fsgui.node
 import json
 import shapely
 import time
+import fsgui.nparray
 
 
 class RippleFilterType(fsgui.node.NodeTypeObject):
@@ -165,12 +166,20 @@ class RippleFilterProcess:
             pipe_send.send(data['publisher'].get_location())
             data['filter_model'] = rip_filter
 
+            data['receive_none_counter'] = 0
+
         def workload(data):
             t0 = time.time()
 
 
             item = data['sub'].recv(timeout=500)
-            if item is not None:
+            if item is None:
+                data['receive_none_counter'] += 1
+                if data['receive_none_counter'] >= 5 and data['receive_none_counter'] % 5 == 0:
+                    print(f'Ripple filter process has not received any LFP data for a while... {time.ctime()}')
+            else:
+                data['receive_none_counter'] = 0
+
                 lfps=json.loads(item)['lfpData']
 
                 t1 = time.time()
@@ -263,12 +272,10 @@ class RippleFilter:
         self.rippleMean = np.zeros(shape=(num_tetrodes,), dtype='double')
         self.rippleSd = np.zeros(shape=(num_tetrodes,), dtype='double')
 
-        self.f_x = np.zeros(shape=(num_tetrodes, self.coefficients.length), dtype='double')
-        self.f_y = np.zeros(shape=(num_tetrodes, self.coefficients.length), dtype='double')
-        self.filtind = np.zeros(shape=(num_tetrodes,), dtype='int')
+        self.f_x = fsgui.nparray.MultiCircularArray(shape=(num_tetrodes, self.coefficients.length), dtype='double')
+        self.f_y = fsgui.nparray.MultiCircularArray(shape=(num_tetrodes, self.coefficients.length), dtype='double')
 
-        self.last_vals = np.zeros(shape=(num_tetrodes, self.num_last_values), dtype='double')
-        self.lvind = np.zeros(shape=(num_tetrodes,), dtype='int')
+        self.last_vals = {i: fsgui.nparray.CircularArray(self.num_last_values) for i in range(num_tetrodes)}
         self.current_val = np.zeros(shape=(num_tetrodes,), dtype='double')
 
         self.n_trode_id = np.zeros(shape=(num_tetrodes,), dtype='int')
@@ -277,11 +284,9 @@ class RippleFilter:
     def reset_ripple_data(self):
         self.rippleMean[:] = 0
         self.rippleSd[:] = 0
-        self.f_x[:,:] = 0
-        self.f_y[:,:] = 0
-        self.filtind[:] = 0
-        self.last_vals[:,:] = 0
-        self.lvind[:] = 0
+        self.f_x.array[:,:] = 0
+        self.f_y.array[:,:] = 0
+        self.last_vals.array[:,:] = 0
         self.current_val[:] = 0
     
     def reset_counter(self):
@@ -291,35 +296,23 @@ class RippleFilter:
         """
         updates last_val and advances last_val index
         """
-        mean = np.mean(self.last_vals[ntrodeid,:])
-        self.last_vals[ntrodeid, self.lvind[ntrodeid]] = value
-
-        # advance circular index
-        self.lvind[ntrodeid] += 1
-        self.lvind[ntrodeid] %= self.num_last_values
+        mean = np.mean(self.last_vals[ntrodeid].array)
+        self.last_vals[ntrodeid].place(value)
         return mean
 
-    def filter_channel(self, ntrodeid, d):
+    def filter_channel(self, lfps):
         """
         updates f_x, f_y and advances filter index
         """
-        self.f_x[ntrodeid, self.filtind[ntrodeid]] = d
-        self.f_y[ntrodeid, self.filtind[ntrodeid]] = 0
-        shift = self.filtind[ntrodeid]
-        val = np.dot(np.roll(self.f_x[ntrodeid, :], -shift), self.coefficients.numerator) - np.dot(np.roll(self.f_y[ntrodeid, :], -shift), self.coefficients.denominator)
-        self.f_y[ntrodeid, self.filtind[ntrodeid]] = val
+        self.f_x.place(lfps)
+        self.f_y.set(0)
 
-        # advance circular index
-        self.filtind[ntrodeid] -= 1
-        self.filtind[ntrodeid] %= self.coefficients.length
-        return val
+        vals = np.dot(self.f_x.get_slice, self.coefficients.numerator) - np.dot(self.f_y.get_slice, self.coefficients.denominator)
+        self.f_y.place(vals)
+
+        return vals
 
     def process_ripple_data(self, lfps, run_update_mean_sd=True, run_calculate_v=True):
-        for n_trode_id, value in enumerate(lfps):
-            triggered = self.__single_process_ripple_data(n_trode_id, value, run_update_mean_sd, run_calculate_v)
-        return triggered
-
-    def __single_process_ripple_data(self, ntrodeid, d, run_update_mean_sd=True, run_calculate_v=True):
         """
         d: the input signal, which could be linearly ramped during lockout
 
@@ -329,28 +322,29 @@ class RippleFilter:
         run_calculate_v: this flag should be false for the first 10k samples startup or when in lockout
             v is roughly the envelope of the ripple magnitude
         """
-
-        rd = self.filter_channel(ntrodeid, d)
-
-        magnitude_rd = np.abs(rd)
+        rd = self.filter_channel(lfps)
+        magnitude_rds = np.abs(rd)
 
         if run_update_mean_sd:
-            self.update_mean_sd(ntrodeid, magnitude_rd)
+            self.update_mean_sd(magnitude_rds)
 
-        if run_calculate_v:
-            self.current_val[ntrodeid] = self.calculate_v(ntrodeid, magnitude_rd)
-        else:
-            self.current_val[ntrodeid] = self.rippleMean[ntrodeid]
+        for ntrodeid, d in enumerate(lfps):
+            magnitude_rd = magnitude_rds[ntrodeid]
+
+            if run_calculate_v:
+                self.current_val[ntrodeid] = self.calculate_v(ntrodeid, magnitude_rd)
+            else:
+                self.current_val[ntrodeid] = self.rippleMean[ntrodeid]
 
         return self.count_above_threshold() >= self.params.n_above_thresh
 
-    def update_mean_sd(self, ntrodeid, ripple_signal):
+    def update_mean_sd(self, ripple_signal):
         """
         ripple_signal: the absolute value of the ripple filtered
         """
-        diff = ripple_signal - self.rippleMean[ntrodeid]
-        self.rippleMean[ntrodeid] += diff / self.params.sampDivisor
-        self.rippleSd[ntrodeid] += (abs(diff) - self.rippleSd[ntrodeid]) / self.params.sampDivisor
+        diff = ripple_signal - self.rippleMean[:]
+        self.rippleMean[:] += diff / self.params.sampDivisor
+        self.rippleSd[:] += (np.abs(diff) - self.rippleSd[:]) / self.params.sampDivisor
 
     def calculate_v(self, ntrodeid, ripple_signal):
         df = ripple_signal - self.current_val[ntrodeid]
