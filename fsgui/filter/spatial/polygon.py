@@ -4,7 +4,7 @@ import fsgui.process
 import fsgui.node
 import json
 import shapely
-
+import fsgui.geometry
 
 class GeometryFilterType(fsgui.node.NodeTypeObject):
     def __init__(self, type_id):
@@ -20,7 +20,7 @@ class GeometryFilterType(fsgui.node.NodeTypeObject):
                 'instance_id': '',
                 'nickname': name,
                 'source_id': None,
-                'filename': '',
+                'trackgeometry': {'filename': '', 'zone_id': None},
                 'cameraWidth': 1000,
                 'cameraHeight': 1000,
             }
@@ -56,9 +56,9 @@ class GeometryFilterType(fsgui.node.NodeTypeObject):
             },
             {
                 'label': 'Geometry file',
-                'name': 'filename',
+                'name': 'trackgeometry',
                 'type': 'geometry',
-                'default': config['filename'],
+                'default': config['trackgeometry'],
             },
             {
                 'label': 'Camera width (X)',
@@ -83,18 +83,12 @@ class GeometryFilterType(fsgui.node.NodeTypeObject):
     def build(self, config, addr_map):
         source_id = config['source_id']
         pub_address = addr_map[source_id]
-        
-        import fsgui.geometry
 
-        reader = fsgui.geometry.TrackGeometryFileReader()
-        geometry_file = reader.read_file(config['filename'])
-
-        width = config['cameraWidth']
-        height = config['cameraHeight']
+        geometry_file = fsgui.geometry.TrackGeometryFileReader().read_file(config['trackgeometry']['filename'])
 
         poly = shapely.geometry.Polygon(
             # rescale from geometry file
-            [(x * width, y * height) for x, y in geometry_file.get_inclusion_zone[0].polygon.nodes]
+            [(x * config['cameraWidth'], y * config['cameraHeight']) for x, y in geometry_file['zone'][config['trackgeometry']['zone_id']]]
         )
 
         return GeometryFilterProcess(pub_address, poly)

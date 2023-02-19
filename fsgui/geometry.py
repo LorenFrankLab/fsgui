@@ -85,8 +85,13 @@ class TrackGeometryFileReader:
         poly_tag = '<polygon settings>'
         end_tag = '<End settings>'
 
-        zones = []
-        inclusions = []
+        geometry_data = {
+            'linearization': {},
+            'rangeline': {},
+            'zone': {},
+            'inclusion': {},
+            'exclusion': {},
+        }
 
         while reader.next():
             if '<Linearization Object>' in reader.line and '1' in reader.line:
@@ -110,12 +115,11 @@ class TrackGeometryFileReader:
                             else:
                                 raise ParseError
 
-                            poly = TrackGeometry.Polygon(list(zip(nodes_x, nodes_y)))
-                            zone = TrackGeometry.Zone(zone_id, poly)
-                            zones.append(zone)
+                            geometry_data['zone'][zone_id] = list(zip(nodes_x, nodes_y))
                     else:
                         raise TrackGeometryFileReader.ParseError('Expected description: Zone geometry')
-                    if end_tag in reader.next():
+
+                    if end_tag in reader.line:
                         pass
                     else:
                         raise TrackGeometryFileReader.ParseError(f'Expected end tag, got {reader.line}')
@@ -139,9 +143,7 @@ class TrackGeometryFileReader:
                             else:
                                 raise ParseError
 
-                            poly = TrackGeometry.Polygon(list(zip(nodes_x, nodes_y)))
-                            zone = TrackGeometry.Zone(zone_id, poly)
-                            inclusions.append(zone)
+                            geometry_data['inclusion'][zone_id] = list(zip(nodes_x, nodes_y))
                     else:
                         raise TrackGeometryFileReader.ParseError('Expected description: Zone geometry')
                     if end_tag in reader.line:
@@ -157,4 +159,4 @@ class TrackGeometryFileReader:
             else:
                 pass
 
-        return TrackGeometry(linearization=[], rangeline=[], zones=zones, inclusion=inclusions, exclusions=[])
+        return geometry_data
