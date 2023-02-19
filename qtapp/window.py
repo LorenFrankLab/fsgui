@@ -109,9 +109,70 @@ class FSGuiTypeList(qtgui.GuiZeroMarginVBoxLayoutWidget):
         list_widget.item_selected.connect(lambda x: self.item_selected.emit(x))
         self.layout().addWidget(list_widget)
 
-class FSGuiWindow(QtWidgets.QWidget):
-    def __init__(self, args, app=None):
+
+
+
+class FileMenu(QtWidgets.QMenu):
+    new_triggered = QtCore.pyqtSignal(object)
+    open_triggered = QtCore.pyqtSignal(object)
+    save_triggered = QtCore.pyqtSignal()
+    save_as_triggered = QtCore.pyqtSignal(object)
+
+    def __init__(self, parent=None):
+        super().__init__('File', parent=parent)
+
+        self.new_action = QtGui.QAction('New Configuration File...', self)
+        self.new_action.setShortcut('Ctrl+N')
+        self.addAction(self.new_action)
+        self.new_action.triggered.connect(lambda: self.new_triggered.emit(self.__get_save_filename()))
+
+        self.addSeparator()
+
+        self.open_action = QtGui.QAction('Open Configuration File...', self)
+        self.open_action.setShortcut('Ctrl+O')
+        self.addAction(self.open_action)
+        self.open_action.triggered.connect(lambda: self.open_triggered.emit(self.__get_existing_filename()))
+
+        self.addSeparator()
+
+        self.save_action = QtGui.QAction('Save Configuration File', self)
+        self.save_action.setShortcut('Ctrl+S')
+        self.addAction(self.save_action)
+        self.save_action.triggered.connect(lambda: self.save_triggered.emit())
+
+        self.save_as_action = QtGui.QAction('Save Configuration File As...', self)
+        self.save_as_action.setShortcut('Ctrl+Shift+S')
+        self.addAction(self.save_as_action)
+        self.save_as_action.triggered.connect(lambda: self.save_as_triggered.emit(self.__get_save_filename()))
+
+    def __get_save_filename(self):
+        (filename, _) = QtWidgets.QFileDialog().getSaveFileName(parent=self, filter='FSGui config files (*.yaml)')
+        return filename
+
+    def __get_existing_filename(self):
+        (filename, _) = QtWidgets.QFileDialog().getOpenFileName(parent=self, filter='FSGui config files (*.yaml)')
+        return filename
+
+class FSGuiWindow(QtWidgets.QMainWindow):
+    def __init__(self, args, app):
         super().__init__()
+        self.app = app
+
+        self.widget = FSGuiWidget(args, app, parent=self)
+        self.setCentralWidget(self.widget)
+        self.setWindowTitle('FSGui')
+
+        menu = FileMenu(self)
+        self.menuBar().addMenu(menu)
+
+        menu.new_triggered.connect(lambda x: print(f'triggered new {x}'))
+        menu.open_triggered.connect(lambda x: print(f'triggered open {x}'))
+        menu.save_triggered.connect(lambda: print('triggered save'))
+        menu.save_as_triggered.connect(lambda x: print(f'triggered save as {x}'))
+
+class FSGuiWidget(QtWidgets.QWidget):
+    def __init__(self, args, app, parent=None):
+        super().__init__(parent=parent)
 
         self.app = app
 
@@ -129,7 +190,11 @@ class FSGuiWindow(QtWidgets.QWidget):
         self.actions_container = qtgui.GuiContainerWidget()
         self.action_types_container = qtgui.GuiContainerWidget()
         self.config_container = qtgui.GuiContainerWidget()
-        self.graph_container = qtgui.GuiContainerWidget()
+
+        self.graph_dialog = qtapp.component.FSGuiDependencyGraphDialog(self)
+        self.graph_dialog.show()
+
+        # self.graph_container = qtgui.GuiContainerWidget(f=QtCore.Qt.WindowType.Window)
 
         self.layout().addWidget(qtapp.component.FSGuiZeroMarginTwoPane(
             qtapp.component.FSGuiNamedVerticalContainer([
@@ -148,7 +213,7 @@ class FSGuiWindow(QtWidgets.QWidget):
             ]),
             qtgui.GuiVBoxContainer([
                 self.config_container,
-                self.graph_container,
+                # self.graph_container,
             ]),
         ))
 
@@ -190,7 +255,8 @@ class FSGuiWindow(QtWidgets.QWidget):
 
         dot = dot.unflatten(stagger=3, fanout=True, chain=3)
  
-        self.graph_container.setWidget(qtapp.component.FSGuiDependencyGraphWidget(dot))
+        # self.graph_container.setWidget(qtapp.component.FSGuiDependencyGraphWidget(dot))
+        self.graph_dialog.update_graph(dot)
 
     def __refresh_list(self):
         """

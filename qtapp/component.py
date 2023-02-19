@@ -12,6 +12,9 @@ import qtapp.collection
 
 import shapely.geometry
 
+import matplotlib.pyplot as plt
+import matplotlib.backends.backend_qt5agg
+
 class FSGuiPlaceholderWidget(QtWidgets.QGroupBox):
     def __init__(self):
         super().__init__()
@@ -43,8 +46,6 @@ class PlotWidget(qtgui.GuiZeroMarginVBoxLayoutWidget):
         """
         super().__init__()
 
-        import matplotlib.pyplot as plt
-        import matplotlib.backends.backend_qt5agg
 
         self._fig, ax = plt.subplots()
         plot_function(ax)
@@ -55,6 +56,20 @@ class PlotWidget(qtgui.GuiZeroMarginVBoxLayoutWidget):
         # because the figures are managed globally by pyplot
         # we have to explicitly free the memory
         plt.close(self._fig)
+
+class FSGuiDependencyGraphDialog(QtWidgets.QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setLayout(QtWidgets.QVBoxLayout())
+        self.layout().setContentsMargins(0,0,0,0)
+        self.resize(500,500)
+        self.setWindowTitle('FSGui dependency graph')
+
+        self.graph_container = qtgui.GuiContainerWidget()
+        self.layout().addWidget(self.graph_container)
+    
+    def update_graph(self, graphviz_graph):
+        self.graph_container.setWidget(qtapp.component.FSGuiDependencyGraphWidget(graphviz_graph))
 
 class FSGuiDependencyGraphWidget(qtgui.GuiZeroMarginVBoxLayoutWidget):
     def __init__(self, graphviz_graph):
@@ -259,14 +274,18 @@ class FSGuiGeometrySelectionWidget(qtgui.GuiVBoxContainer):
     
     edit_available = QtCore.pyqtSignal()
 
-    def __init__(self, default = None):
+    def __init__(self, default = {'filename': '', 'zone_id': None}):
         super().__init__()
 
-        self.filename = default
-
-        self.line = QtWidgets.QLineEdit(self.filename)
+        self.line = QtWidgets.QLineEdit(default['filename'])
         self.line.textChanged.connect(lambda x: self.edit_available.emit())
         self.layout().addWidget(self.line)
+
+        self.zone_selection_widget = qtgui.GuiContainerWidget()
+        self.layout().addWidget(self.zone_selection_widget)
+
+        self.zone_selection = qtgui.forms.GuiFormSelectWidget(options=[{'name': default['zone_id'], 'label': 'Zone {}'.format(default['zone_id'])}], default=default['zone_id'])
+        self.zone_selection_widget.setWidget(self.zone_selection)
 
         button = QtWidgets.QPushButton('Open geometry file')
         button.clicked.connect(self.__handle_button)
@@ -282,32 +301,39 @@ class FSGuiGeometrySelectionWidget(qtgui.GuiVBoxContainer):
         import time
         self.content.setWidget(QtWidgets.QLabel(f'truth: {time.ctime()}'))
 
-        filename = self.read_value()
+        filename = self.read_value()['filename']
 
         try:
             with open(filename, 'r') as f:
                 content = f.read()
 
             import fsgui.geometry
+            geometry_file = fsgui.geometry.TrackGeometryFileReader().read_string(content)
 
-            reader = fsgui.geometry.TrackGeometryFileReader()
-            geometry_file = reader.read_string(content)
-
-            shapely_polygon = shapely.geometry.Polygon(geometry_file.get_inclusion_zone[0].polygon.nodes)
+            self.zone_selection = qtgui.forms.GuiFormSelectWidget(options=[{'name': zone_id, 'label': f'Zone {zone_id}'} for zone_id in geometry_file['zone'].keys()], default=self.zone_selection.read_value())
+            self.zone_selection.edit_available.connect(lambda: self.edit_available.emit())
+            self.zone_selection_widget.setWidget(self.zone_selection)
 
             def plot_function(ax):
-                x,y = shapely_polygon.exterior.xy
-                ax.plot(x,y)
+                ax.set_ylim(1, 0)
+                ax.set_xlim(0, 1)
 
-            # self.content.setWidget(QtWidgets.QTextEdit(f'{geometry_file}'))
+                for zone_id, inclusion_zone in geometry_file['zone'].items():
+                    shapely_polygon = shapely.geometry.Polygon(inclusion_zone)
+                    x,y = shapely_polygon.exterior.xy
+
+                    if zone_id == self.read_value()['zone_id']:
+                        ax.fill(x,y)
+                    else:
+                        ax.plot(x,y)
+
+                    centroid_x, centroid_y = shapely_polygon.centroid.coords[0]
+                    ax.text(centroid_x, centroid_y, f'{zone_id}')
+
             self.content.setWidget(PlotWidget(plot_function))
                 
         except FileNotFoundError as e:
             self.content.setWidget(QtWidgets.QLabel(f'FileNotFound: {time.ctime()}'))
-
-        # open the file
-        # check the file out
-        # plot the file
 
     def __handle_button(self):
         dialog = QtWidgets.QFileDialog()
@@ -316,4 +342,7 @@ class FSGuiGeometrySelectionWidget(qtgui.GuiVBoxContainer):
         dialog.exec()
 
     def read_value(self):
-        return self.line.text()
+        return {
+            'filename': self.line.text(),
+            'zone_id': self.zone_selection.read_value()
+        }
