@@ -4,7 +4,6 @@ import fsgui.node
 import fsgui.network
 import fsgui.spikegadgets.trodes
 import fsgui.spikegadgets.trodesnetwork as trodesnetwork
-import logging
 import json
 import time
 
@@ -55,18 +54,18 @@ class LFPDataType(fsgui.node.NodeTypeObject):
         except Exception:
             raise ValueError('Could not connect to trodes source')
         
-        def setup(reporter, data):
+        def setup(logging, data):
             data['lfp_sub'] = trodesnetwork.SourceSubscriber('source.lfp', server_address = f'{self.network_location.address}:{self.network_location.port}')
             data['receive_none_counter'] = 0
 
-        def workload(reporter, publisher, data):
+        def workload(logging, publisher, reporter, data):
             lfp_data = data['lfp_sub'].receive(timeout=50)
             if lfp_data is None:
                 data['receive_none_counter'] += 1
                 if data['receive_none_counter'] > 40 and data['receive_none_counter'] % 40 == 0:
-                    reporter.info(f'LFP source has received any LFP data from Trodes in a while...')
+                    logging.info(f'LFP source has received any LFP data from Trodes in a while...')
             else:
                 data['receive_none_counter'] = 0
-                publisher.send(f'{json.dumps(lfp_data)}')
+                publisher.send(lfp_data)
         
-        return fsgui.process.build_process_object(setupdata['publisher'], workload)
+        return fsgui.process.build_process_object(setup, workload)

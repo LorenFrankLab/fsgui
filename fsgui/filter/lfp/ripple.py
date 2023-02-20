@@ -150,24 +150,25 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
             num_last_values=20
         )
 
-        def setup(reporter, data):
+        def setup(logging, data):
             data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
             data['filter_model'] = rip_filter
 
-        def workload(reporter, publisher, data):
+        def workload(logging, publisher, reporter, data):
             t0 = time.time()
 
             item = data['sub'].recv(timeout=500)
             if item is not None:
-                lfps=json.loads(item)['lfpData']
+                lfps=item['lfpData']
 
                 t1 = time.time()
                 triggered = data['filter_model'].process_ripple_data(lfps)
                 t2 = time.time() - t1
-                print(f'sum: {t2}')
+                reporter.send(f'sum: {t2}')
 
                 if triggered:
-                    reporter.info(f'ripple: {triggered}')
+                    logging.info(f'ripple: {triggered}')
+
                 publisher.send(f'{triggered}')
 
         return fsgui.process.build_process_object(setup, workload)

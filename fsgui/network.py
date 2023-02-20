@@ -13,7 +13,7 @@ class UnidirectionalChannelSender:
             self._location = self._sock.get_string(zmq.LAST_ENDPOINT)
 
     def send(self, data):
-        self._sock.send_string(data)
+        self._sock.send_json(data)
 
     def get_location(self):
         return self._location
@@ -39,6 +39,6 @@ class UnidirectionalChannelReceiver:
             (sock, mask), = polled
             # not sure about mask
             assert mask == 1
-            return sock.recv_string()
+            return sock.recv_json()
         else:
             return None

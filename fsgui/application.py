@@ -67,28 +67,34 @@ class FSGuiApplication:
         ready_conns = multiprocessing.connection.wait(conns, timeout=0)
 
         for conn in ready_conns:
-            data = conn.recv()
-            assert 'type' in data
+            try:
+                data = conn.recv()
+                assert 'type' in data
 
-            if data['type'] == 'exception':
-                e = data['exception']
+                if data['type'] == 'exception':
+                    e = data['data']
+                    trace_string = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+                    logging.info(f'<pre>{trace_string}</pre>')
+                    logging.exception(f'{repr(e)}')
+                elif data['type'] == 'log_debug':
+                    logging.debug(data['data'])
+                elif data['type'] == 'log_info':
+                    logging.info(data['data'])
+                elif data['type'] == 'log_warning':
+                    logging.warning(data['data'])
+                elif data['type'] == 'log_error':
+                    logging.error(data['data'])
+                elif data['type'] == 'log_critical':
+                    logging.critical(data['data'])
+                else:
+                    raise ValueError('unknown type {}'.format(data['type']))
+            except EOFError as e:
+                # this is a good hint that the process has been taken down, so maybe forcibly unbuild the process?
+                # and possibly set error status
                 trace_string = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
                 logging.info(f'<pre>{trace_string}</pre>')
                 logging.exception(f'{repr(e)}')
-            elif data['type'] == 'debug_message':
-                logging.debug(data['string'])
-            elif data['type'] == 'info_message':
-                logging.info(data['string'])
-            elif data['type'] == 'warning_message':
-                logging.warning(data['string'])
-            elif data['type'] == 'error_message':
-                logging.error(data['string'])
-            elif data['type'] == 'critical_message':
-                logging.critical(data['string'])
-            elif data['type'] == 'add_endpoint':
-                self.add_node_reporting_endpoint(data['endpoint'])
-            else:
-                raise ValueError('unknown type {}'.format(data['type']))
+
 
     def add_node_reporting_endpoint(self, endpoint):
         print(f'got an endpoint: {endpoint}')
@@ -237,6 +243,7 @@ class FSGuiApplication:
 
     def __get_child_address_map(self, instance_id):
         return {
+            # tuple location [1] is the pub_address
             instance_id : self.added_nodes[instance_id].built_process[1]
             for instance_id in self.get_node_children_ids(instance_id)
         }

@@ -100,26 +100,20 @@ class ThetaFilterType(fsgui.node.NodeTypeObject):
 
         tetrode_id=config['tetrode_id']
 
-        def setup(reporter, data):
+        def setup(logging, data):
             data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
             data['filter_model'] = theta_filter
 
-            data['live_publisher'] = fsgui.network.UnidirectionalChannelSender()
-            reporter.add_endpoint(data['live_publisher'].get_location())
-
-        def workload(reporter, publisher, data):
+        def workload(logging, publisher, reporter, data):
             item = data['sub'].recv(timeout=500)
             if item is not None:
-                json_item = json.loads(item)
-                lfps=json_item['lfpData']
-
-                lfpVal = lfps[tetrode_id]
-                sampleTime=json_item['localTimestamp']
+                lfpVal=item['lfpData'][tetrode_id]
+                sampleTime=item['localTimestamp']
 
                 triggered, fLFP, nextTrigger, sampleTime, periodEstimate = data['filter_model'].process_theta_data(lfpVal, sampleTime)
 
-                data['live_publisher'].send(f'trig: {triggered} flfp: {fLFP} next: {nextTrigger} samp: {sampleTime} period est: {periodEstimate}')
                 publisher.send(f'{triggered}')
+                reporter.send(f'trig: {triggered} flfp: {fLFP} next: {nextTrigger} samp: {sampleTime} period est: {periodEstimate}')
 
         return fsgui.process.build_process_object(setup, workload)
 
