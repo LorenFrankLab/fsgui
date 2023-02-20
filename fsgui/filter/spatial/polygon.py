@@ -90,16 +90,19 @@ class GeometryFilterType(fsgui.node.NodeTypeObject):
             [(x * config['cameraWidth'], y * config['cameraHeight']) for x, y in geometry_file['zone'][config['trackgeometry']['zone_id']]]
         )
 
-        def setup(reporter, data):
+        def setup(logging, data):
             data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
             data['filter_model'] = PolygonFilter(shapely_polygon)
 
-        def workload(reporter, publisher, data):
+        def workload(logging, publisher, reporter, data):
             item = data['sub'].recv(timeout=500)
             if item is not None:
-                x, y = tuple(map(float, item.split(',')))
-                triggered = data['filter_model'].point_in_polygon(x, y)
-                publisher.send(f'{triggered}')
+                publisher.send(
+                    data['filter_model'].point_in_polygon(
+                        x=item['x'],
+                        y=item['y'],
+                    )
+                )
 
         return fsgui.process.build_process_object(setup, workload)
     

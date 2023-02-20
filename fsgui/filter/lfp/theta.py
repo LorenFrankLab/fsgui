@@ -112,8 +112,14 @@ class ThetaFilterType(fsgui.node.NodeTypeObject):
 
                 triggered, fLFP, nextTrigger, sampleTime, periodEstimate = data['filter_model'].process_theta_data(lfpVal, sampleTime)
 
-                publisher.send(f'{triggered}')
-                reporter.send(f'trig: {triggered} flfp: {fLFP} next: {nextTrigger} samp: {sampleTime} period est: {periodEstimate}')
+                publisher.send(triggered)
+                reporter.send({
+                    'trig': triggered,
+                    'flfp': fLFP,
+                    'next': nextTrigger,
+                    'samp': sampleTime,
+                    'period': periodEstimate,
+                })
 
         return fsgui.process.build_process_object(setup, workload)
 

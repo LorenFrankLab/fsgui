@@ -320,7 +320,7 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
         lockout_time=config['lockout_time']
         funct_num=funct_num
 
-        def setup(reporter, data):
+        def setup(logging, data):
             # assign each
             data['sub_receivers'] = {
                 sub_name: fsgui.network.UnidirectionalChannelReceiver(sub_address)
@@ -337,12 +337,12 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
             data['last_triggered'] = None
             data['currently_triggered'] = False
 
-        def workload(reporter, publisher, data):
+        def workload(logging, publisher, reporter, data):
             # loop updates all of the sub_values
             for sub_name, receiver in data['sub_receivers'].items():
-                value = receiver.recv(timeout=200)
+                value = receiver.recv(timeout=0)
                 if value is not None:
-                    data['sub_values'][sub_name] = (value == 'True')
+                    data['sub_values'][sub_name] = value
 
             def evaluate_node(node, data):
                 if 'gate-and' == node['data']['type']:
@@ -367,6 +367,7 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                     {'fn': funct_num}
                 ])
                 data['currently_triggered'] = True
+                reporter.send(True)
             elif not evaluation and data['currently_triggered']:
                 data['trodes_sender'].request([
                     'tag',
@@ -375,5 +376,6 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                 ])
                 data['currently_triggered'] = False
                 data['last_triggered'] = None
+                reporter.send(False)
  
         return fsgui.process.build_process_object(setup, workload)

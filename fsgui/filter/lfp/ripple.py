@@ -164,12 +164,12 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 t1 = time.time()
                 triggered = data['filter_model'].process_ripple_data(lfps)
                 t2 = time.time() - t1
-                reporter.send(f'sum: {t2}')
 
                 if triggered:
                     logging.info(f'ripple: {triggered}')
 
-                publisher.send(f'{triggered}')
+                publisher.send(triggered)
+                reporter.send({'sum': t2})
 
         return fsgui.process.build_process_object(setup, workload)
 
