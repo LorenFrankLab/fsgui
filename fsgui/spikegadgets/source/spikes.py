@@ -1,10 +1,13 @@
 import multiprocessing as mp
 import fsgui.process
 import fsgui.node
+import fsgui.network
 import fsgui.spikegadgets.trodes
+import fsgui.spikegadgets.trodesnetwork as trodesnetwork
 import logging
 import json
 import numpy as np
+import time
 
 
 class SpikesDataType(fsgui.node.NodeTypeObject):
@@ -47,34 +50,18 @@ class SpikesDataType(fsgui.node.NodeTypeObject):
         ]
 
     def build(self, config, addr_map):
-        import fsgui.spikegadgets.trodesnetwork as trodesnetwork
-        trodesnetwork.SourceSubscriber('source.waveforms', server_address = f'{self.network_location.address}:{self.network_location.port}')
-        return SpikesSource(network_location = self.network_location)
+        try:
+            # check connection to fail during build rather than process runtime
+            trodesnetwork.SourceSubscriber('source.waveforms', server_address = f'{self.network_location.address}:{self.network_location.port}')
+        except Exception:
+            raise ValueError('Could not connect to Trodes spikes')
 
-class SpikesSource:
-    def __init__(self, network_location):
-        pipe_recv, pipe_send = mp.Pipe(duplex=False)
-
-        import time
-
-        def setup(data):
-            import fsgui.network
-            import fsgui.spikegadgets.trodesnetwork as trodesnetwork
-            data['publisher'] = fsgui.network.UnidirectionalChannelSender()
-            pipe_send.send(data['publisher'].get_location())
-
-            # set up the actual subscriber
+        def setup(reporter, data):
             data['spikes_sub'] = trodesnetwork.SourceSubscriber('source.waveforms', server_address = f'{network_location.address}:{network_location.port}')
 
-        def workload(data):
+        def workload(reporter, publisher, data):
             spikes_data = data['spikes_sub'].receive(timeout=50)
             if spikes_data is not None:
-                data['publisher'].send(f'{json.dumps(spikes_data)}')
+                publisher.send(f'{json.dumps(spikes_data)}')
        
-        def cleanup(data):
-            pipe_send.close()
-
-        self._proc = fsgui.process.ProcessObject({}, setup, workload, cleanup)
-        self._proc.start()
-
-        self.pub_address = pipe_recv.recv()
+        return fsgui.process.build_process_object(setup, workload)

@@ -64,22 +64,15 @@ class DecoderType(fsgui.node.NodeTypeObject):
             },
         ]
     def build(self, config, addr_map):
+        histogram_address=addr_map[config['histogram_source']]
+        timekeeper_address=addr_map[config['timekeeper_source']]
+        covariate_address=addr_map[config['covariate_source']]
 
         decoder = Decoder(
             transition_matrix=None,
             )
 
-        return DecoderProcess(
-            histogram_address=addr_map[config['histogram_source']],
-            timekeeper_address=addr_map[config['timekeeper_source']],
-            covariate_address=addr_map[config['covariate_source']],
-            decoder=decoder)
-
-class DecoderProcess:
-    def __init__(self, histogram_address, timekeeper_address, covariate_address, decoder):
-        pipe_recv, pipe_send = mp.Pipe(duplex=False)
-
-        def setup(data):
+        def setup(reporter, data):
             data['histogram_sub'] = fsgui.network.UnidirectionalChannelReceiver(histogram_address)
             data['timekeeper_sub'] = fsgui.network.UnidirectionalChannelReceiver(timekeeper_address)
             data['covariate_sub'] = fsgui.network.UnidirectionalChannelReceiver(covariate_address)
@@ -89,12 +82,9 @@ class DecoderProcess:
             for sub_var_name in ['histogram_sub', 'timekeeper_sub', 'covariate_sub']:
                 data['poller'].register(data[sub_var_name].sock)
 
-            data['publisher'] = fsgui.network.UnidirectionalChannelSender()
-            pipe_send.send(data['publisher'].get_location())
-
             data['filter_model'] = decoder
 
-        def workload(data):
+        def workload(reporter, publisher, data):
             results = dict(data['poller'].poll(timeout=500))
 
             if data['histogram_sub'].sock in results:
@@ -108,21 +98,13 @@ class DecoderProcess:
 
                 # run a decode on the spikes in buffer
                 # result = data['filter_model'].query(buffer_spikes)
-                # data['publisher'].send(f'{result}')
+                # publisher.send(f'{result}')
 
             if data['covariate_sub'].sock in results:
                 item = data['covariate_sub'].recv(timeout=500)
                 data['filter_model'].update_covariate(int(item))
  
-        def cleanup(data):
-            pipe_send.close()
-
-        self._proc = fsgui.process.ProcessObject({}, setup, workload, cleanup)
-        self._proc.start()
-        self.pub_address = pipe_recv.recv()
-
-
-
+        return fsgui.process.build_process_object(setup, workload)
 
 class RealtimeSpikeBuffer:
     def __init__(self, time_bin_width, time_bin_delay, size=1000):

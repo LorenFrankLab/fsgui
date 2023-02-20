@@ -69,7 +69,4 @@ class LFPDataType(fsgui.node.NodeTypeObject):
                 data['receive_none_counter'] = 0
                 publisher.send(f'{json.dumps(lfp_data)}')
         
-        def cleanup(reporter, data):
-            pass
-
-        return fsgui.process.build_process_object(setup, workload, cleanup)
+        return fsgui.process.build_process_object(setupdata['publisher'], workload)

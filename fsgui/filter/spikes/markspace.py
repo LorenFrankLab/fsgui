@@ -72,6 +72,10 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
     
     def build(self, config, addr_map):
 
+        spikes_address=addr_map[config['spikes_source']]
+        covariate_address=addr_map[config['covariate_source']]
+        update_address=addr_map[config['update_signal_source']]
+
         encoder = MarkSpaceEncoder(
             mark_ndims=1,
             covariate_histogram_bins=40,
@@ -80,17 +84,7 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
             k2=2,
             )
 
-        return MarkSpaceEncoderProcess(
-            spikes_address=addr_map[config['spikes_source']],
-            covariate_address=addr_map[config['covariate_source']],
-            update_address=addr_map[config['update_signal_source']],
-            encoder=encoder)
-
-class MarkSpaceEncoderProcess:
-    def __init__(self, spikes_address, covariate_address, update_address, encoder):
-        pipe_recv, pipe_send = mp.Pipe(duplex=False)
-
-        def setup(data):
+        def setup(reporter, data):
             data['spikes_sub'] = fsgui.network.UnidirectionalChannelReceiver(spikes_address)
             data['covariate_sub'] = fsgui.network.UnidirectionalChannelReceiver(covariate_address)
             data['update_sub'] = fsgui.network.UnidirectionalChannelReceiver(update_address)
@@ -101,13 +95,10 @@ class MarkSpaceEncoderProcess:
             data['poller'].register(data['covariate_sub'].sock)
             data['poller'].register(data['update_sub'].sock)
 
-            data['publisher'] = fsgui.network.UnidirectionalChannelSender()
-            pipe_send.send(data['publisher'].get_location())
-
             data['filter_model'] = encoder
             data['update_model_bool'] = False
 
-        def workload(data):
+        def workload(reporter, publisher, data):
             start_time = time.time()
             results = dict(data['poller'].poll(timeout=500))
 
@@ -127,7 +118,7 @@ class MarkSpaceEncoderProcess:
 
                 result = data['filter_model'].query(mark)
                 print(result)
-                data['publisher'].send(f'{result}')
+                publisher.send(f'{result}')
 
                 if data['update_model_bool']:
                     data['filter_model'].add_mark(mark)
@@ -139,13 +130,8 @@ class MarkSpaceEncoderProcess:
             if data['covariate_sub'].sock in results:
                 item = data['covariate_sub'].recv(timeout=500)
                 data['filter_model'].update_covariate(int(item))
- 
-        def cleanup(data):
-            pipe_send.close()
 
-        self._proc = fsgui.process.ProcessObject({}, setup, workload, cleanup)
-        self._proc.start()
-        self.pub_address = pipe_recv.recv()
+        return fsgui.process.build_process_object(setup, workload)
 
 class MarkSpaceDistance:
     pass

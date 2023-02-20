@@ -50,31 +50,18 @@ class TimestampDataType(fsgui.node.NodeTypeObject):
         ]
 
     def build(self, config, addr_map):
-        trodesnetwork.SourceSubscriber('source.lfp', server_address = f'{self.network_location.address}:{self.network_location.port}')
-        return TimestampSource(network_location = self.network_location)
+        try:
+            trodesnetwork.SourceSubscriber('source.lfp', server_address = f'{self.network_location.address}:{self.network_location.port}')
+        except Exception:
+            raise ValueError('Could not connect to Trodes source')
+ 
+        def setup(reporter, data):
+            data['sub'] = trodesnetwork.SourceSubscriber('source.lfp', server_address = f'{self.network_location.address}:{self.network_location.port}')
 
-class TimestampSource:
-    def __init__(self, network_location):
-        pipe_recv, pipe_send = mp.Pipe(duplex=False)
-
-
-        def setup(data):
-            data['publisher'] = fsgui.network.UnidirectionalChannelSender()
-            pipe_send.send(data['publisher'].get_location())
-
-            # set up the actual subscriber
-            data['sub'] = trodesnetwork.SourceSubscriber('source.lfp', server_address = f'{network_location.address}:{network_location.port}')
-
-        def workload(data):
+        def workload(reporter, publisher, data):
             timestamp_data = data['sub'].receive(timeout=50)
             if timestamp_data is not None:
                 hardware_ts = timestamp_data['localTimestamp']
-                data['publisher'].send(f'{hardware_ts}')
+                publisher.send(f'{hardware_ts}')
         
-        def cleanup(data):
-            pipe_send.close()
-
-        self._proc = fsgui.process.ProcessObject({}, setup, workload, cleanup)
-        self._proc.start()
-
-        self.pub_address = pipe_recv.recv()
+        return fsgui.process.build_process_object(setup, workload)

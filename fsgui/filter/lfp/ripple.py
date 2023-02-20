@@ -127,59 +127,38 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
         ]
     
     def build(self, config, addr_map):
-        source_id = config['source_id']
-        pub_address = addr_map[source_id]
+        pub_address = addr_map[config['source_id']]
         
-        coefficients = RippleFilterCoefficients19()
-        params = RippleFilterParams(
-            ripCoeff1=config['ripCoeff1'],
-            ripCoeff2=config['ripCoeff2'],
-            ripple_threshold=config['ripThresh'],
-            sampDivisor=config['sampleDivisor'],
-            n_above_thresh=config['nAboveThresh'],
-            lockoutTime=config['lockoutTime'],
-            detectNoRippleTime=config['detectNoRipplesTime'],
-            dioGatePort=None,
-            detectNoRipples=config['detectNoRipples'],
-            dioGate=None,
-            enabled=None,
-            useCustomBaseline=None,
-            updateCustomBaseline=None
-        )
-
         rip_filter = RippleFilter(
             num_tetrodes=16,
-            coefficients=coefficients,
-            params=params,
+            coefficients=RippleFilterCoefficients19(),
+            params = RippleFilterParams(
+                ripCoeff1=config['ripCoeff1'],
+                ripCoeff2=config['ripCoeff2'],
+                ripple_threshold=config['ripThresh'],
+                sampDivisor=config['sampleDivisor'],
+                n_above_thresh=config['nAboveThresh'],
+                lockoutTime=config['lockoutTime'],
+                detectNoRippleTime=config['detectNoRipplesTime'],
+                dioGatePort=None,
+                detectNoRipples=config['detectNoRipples'],
+                dioGate=None,
+                enabled=None,
+                useCustomBaseline=None,
+                updateCustomBaseline=None
+            ),
             num_last_values=20
         )
 
-        return RippleFilterProcess(pub_address, rip_filter)
-
-class RippleFilterProcess:
-    def __init__(self, source_pub_address, rip_filter):
-        pipe_recv, pipe_send = mp.Pipe(duplex=False)
-
-        def setup(data):
-            data['sub'] = fsgui.network.UnidirectionalChannelReceiver(source_pub_address)
-            data['publisher'] = fsgui.network.UnidirectionalChannelSender()
-            pipe_send.send(data['publisher'].get_location())
+        def setup(reporter, data):
+            data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
             data['filter_model'] = rip_filter
 
-            data['receive_none_counter'] = 0
-
-        def workload(data):
+        def workload(reporter, publisher, data):
             t0 = time.time()
 
-
             item = data['sub'].recv(timeout=500)
-            if item is None:
-                data['receive_none_counter'] += 1
-                if data['receive_none_counter'] >= 5 and data['receive_none_counter'] % 5 == 0:
-                    print(f'Ripple filter process has not received any LFP data for a while... {time.ctime()}')
-            else:
-                data['receive_none_counter'] = 0
-
+            if item is not None:
                 lfps=json.loads(item)['lfpData']
 
                 t1 = time.time()
@@ -188,16 +167,10 @@ class RippleFilterProcess:
                 print(f'sum: {t2}')
 
                 if triggered:
-                    print(f'ripple: {triggered}')
+                    reporter.info(f'ripple: {triggered}')
+                publisher.send(f'{triggered}')
 
-                data['publisher'].send(f'{triggered}')
-
-        def cleanup(data):
-            pipe_send.close()
-
-        self._proc = fsgui.process.ProcessObject({}, setup, workload, cleanup)
-        self._proc.start()
-        self.pub_address = pipe_recv.recv()
+        return fsgui.process.build_process_object(setup, workload)
 
 class RippleFilterCoefficients19:
     def __init__(self):

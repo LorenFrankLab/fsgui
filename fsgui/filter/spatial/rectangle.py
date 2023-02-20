@@ -91,36 +91,23 @@ class AxisAlignedRectangleFilterType(fsgui.node.NodeTypeObject):
        ]
 
     def build(self, config, addr_map):
-        source_id = config['source_id']
-        pub_address = addr_map[source_id]
+        pub_address = addr_map[config['source_id']]
         
         lower_left = config['lowerLeftX'], config['lowerLeftY']
         upper_right = config['upperRightX'], config['upperRightY']
-        return AxisAlignedRectangleFilterProcess(pub_address, lower_left, upper_right)
 
-class AxisAlignedRectangleFilterProcess:
-    def __init__(self, source_pub_address, lower_left, upper_right):
-        pipe_recv, pipe_send = mp.Pipe(duplex=False)
-
-        def setup(data):
-            data['sub'] = fsgui.network.UnidirectionalChannelReceiver(source_pub_address)
-            data['publisher'] = fsgui.network.UnidirectionalChannelSender()
-            pipe_send.send(data['publisher'].get_location())
+        def setup(reporter, data):
+            data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
             data['filter_model'] = AxisAlignedRectangleFilter(lower_left, upper_right)
 
-        def workload(data):
+        def workload(reporter, publisher, data):
             item = data['sub'].recv(timeout=500)
             if item is not None:
                 x, y = tuple(map(float, item.split(',')))
                 triggered = data['filter_model'].check_bounds(x, y)
-                data['publisher'].send(f'{triggered}')
+                publisher.send(f'{triggered}')
 
-        def cleanup(data):
-            pipe_send.close()
-
-        self._proc = fsgui.process.ProcessObject({}, setup, workload, cleanup)
-        self._proc.start()
-        self.pub_address = pipe_recv.recv()
+        return fsgui.process.build_process_object(setup, workload)
 
 class AxisAlignedRectangleFilter:
     def __init__(self, lower_left, upper_right, inclusive=True):

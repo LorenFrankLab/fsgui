@@ -314,33 +314,13 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
             'command': script,
         })
 
-        # return fsgui.spikegadgets.action.shortcut.StateScriptFunctionActionProcess(
-        #     sub_addresses=address_map,
-        #     filter_tree=config['filter_id'],
-        #     network_location=self.network_location,
-        #     lockout_time=config['lockout_time'],
-        #     funct_num=funct_num
-        # )
+        sub_addresses=address_map
+        filter_tree=config['filter_id']
+        network_location=self.network_location
+        lockout_time=config['lockout_time']
+        funct_num=funct_num
 
-        return DigitalPulseWaveActionProcess(
-            sub_addresses=address_map,
-            filter_tree=config['filter_id'],
-            network_location=self.network_location,
-            lockout_time=config['lockout_time'],
-            funct_num=funct_num
-        )
-
-
-
-class DigitalPulseWaveActionProcess:
-    def __init__(self,
-        sub_addresses,
-        filter_tree,
-        network_location,
-        lockout_time,
-        funct_num):
-
-        def setup(data):
+        def setup(reporter, data):
             # assign each
             data['sub_receivers'] = {
                 sub_name: fsgui.network.UnidirectionalChannelReceiver(sub_address)
@@ -357,7 +337,7 @@ class DigitalPulseWaveActionProcess:
             data['last_triggered'] = None
             data['currently_triggered'] = False
 
-        def workload(data):
+        def workload(reporter, publisher, data):
             # loop updates all of the sub_values
             for sub_name, receiver in data['sub_receivers'].items():
                 value = receiver.recv(timeout=200)
@@ -396,11 +376,4 @@ class DigitalPulseWaveActionProcess:
                 data['currently_triggered'] = False
                 data['last_triggered'] = None
  
-                
-
-        def cleanup(data):
-            pass
-
-        self._proc = fsgui.process.ProcessObject({}, setup, workload, cleanup)
-        self._proc.start()
- 
+        return fsgui.process.build_process_object(setup, workload)

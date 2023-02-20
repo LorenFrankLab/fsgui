@@ -5,6 +5,7 @@ import fsgui.spikegadgets.trodes
 import logging
 import fsgui.spikegadgets.trodesnetwork as trodesnetwork
 import fsgui.network
+import time
  
 class CameraDataType(fsgui.node.NodeTypeObject):
     def __init__(self, type_id, network_location):
@@ -47,33 +48,20 @@ class CameraDataType(fsgui.node.NodeTypeObject):
         ]
     
     def build(self, config, addr_map):
-        trodesnetwork.SourceSubscriber('source.position', server_address = f'{self.network_location.address}:{self.network_location.port}')
-        return CameraSource(network_location = self.network_location)
+        try:
+            trodesnetwork.SourceSubscriber('source.position', server_address = f'{self.network_location.address}:{self.network_location.port}')
+        except Exception:
+            raise ValueError('Could not connect to Trodes camera')
 
-class CameraSource:
-    def __init__(self, network_location):
-        pipe_recv, pipe_send = mp.Pipe(duplex=False)
-
-        import time
-
-        def setup(data):
-            data['publisher'] = fsgui.network.UnidirectionalChannelSender()
-            pipe_send.send(data['publisher'].get_location())
-
-            # set up the actual subscriber
+        def setup(reporter, data):
             data['camera_sub'] = trodesnetwork.SourceSubscriber('source.position', server_address = f'{network_location.address}:{network_location.port}')
 
-        def workload(data):
+        def workload(reporter, publisher, data):
             camera_data = data['camera_sub'].receive(timeout=50)
             if camera_data is not None:
                 x = camera_data['x']
                 y = camera_data['y']
-                data['publisher'].send(f'{x},{y}')
+                publisher.send(f'{x},{y}')
+
+        return fsgui.process.build_process_object(setup, workload)
         
-        def cleanup(data):
-            pipe_send.close()
-
-        self._proc = fsgui.process.ProcessObject({}, setup, workload, cleanup)
-        self._proc.start()
-
-        self.pub_address = pipe_recv.recv()

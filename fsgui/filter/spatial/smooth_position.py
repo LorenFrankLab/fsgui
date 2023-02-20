@@ -48,33 +48,20 @@ class SmoothPositionFilterType(fsgui.node.NodeTypeObject):
         ]
 
     def build(self, config, addr_map):
-        source_id = config['source_id']
-        pub_address = addr_map[source_id]
-        return SpeedFilterProcess(pub_address)
+        pub_address = addr_map[config['source_id']]
 
-class SmoothPositionFilterProcess:
-    def __init__(self, source_pub_address):
-        pipe_recv, pipe_send = mp.Pipe(duplex=False)
-
-        def setup(data):
-            data['sub'] = fsgui.network.UnidirectionalChannelReceiver(source_pub_address)
-            data['publisher'] = fsgui.network.UnidirectionalChannelSender()
-            pipe_send.send(data['publisher'].get_location())
+        def setup(reporter, data):
+            data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
             data['filter_model'] = SmoothPositionFilter(coefficients=SpatialCoefficients4())
 
-        def workload(data):
+        def workload(reporter, publisher, data):
             item = data['sub'].recv(timeout=500)
             if item is not None:
                 x, y = tuple(map(float, item.split(',')))
                 smooth_x, smooth_y = data['filter_model'].smooth_position(x, y)
-                data['publisher'].send(f'{smooth_x},{smooth_y}')
+                publisher.send(f'{smooth_x},{smooth_y}')
 
-        def cleanup(data):
-            pipe_send.close()
-
-        self._proc = fsgui.process.ProcessObject({}, setup, workload, cleanup)
-        self._proc.start()
-        self.pub_address = pipe_recv.recv()
+        return fsgui.process.build_process_object(setup, workload)
 
 class SpatialCoefficients4:
     def __init__(self):

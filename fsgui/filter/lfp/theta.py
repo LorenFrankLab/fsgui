@@ -90,40 +90,26 @@ class ThetaFilterType(fsgui.node.NodeTypeObject):
         ]
 
     def build(self, config, addr_map):
-        source_id = config['source_id']
-        pub_address = addr_map[source_id]
+        pub_address = addr_map[config['source_id']]
         
-        coefficients = ThetaFilterCoefficientsDefault()
-        params = ThetaFilterParams(targetPhase=config['thetaPhase'])
+        theta_filter = ThetaFilter(
+            coefficients=ThetaFilterCoefficientsDefault(),
+            params=ThetaFilterParams(targetPhase=config['thetaPhase']),
+            sample_rate=config['sample_rate']
+        )
 
-        theta_filter = ThetaFilter(coefficients=coefficients, params=params, sample_rate=config['sample_rate'])
+        tetrode_id=config['tetrode_id']
 
-        return ThetaFilterProcess(pub_address, theta_filter, tetrode_id=config['tetrode_id'])
-
-class ThetaFilterProcess:
-    def __init__(self, source_pub_address, theta_filter, tetrode_id):
-        pipe_recv, pipe_send = mp.Pipe(duplex=False)
-
-        def setup(data):
-            data['sub'] = fsgui.network.UnidirectionalChannelReceiver(source_pub_address)
-            data['publisher'] = fsgui.network.UnidirectionalChannelSender()
-            pipe_send.send(data['publisher'].get_location())
+        def setup(reporter, data):
+            data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
             data['filter_model'] = theta_filter
-            data['receive_none_counter'] = 0
 
             data['live_publisher'] = fsgui.network.UnidirectionalChannelSender()
-            print(data['live_publisher'].get_location())
+            reporter.add_endpoint(data['live_publisher'].get_location())
 
-
-        def workload(data):
+        def workload(reporter, publisher, data):
             item = data['sub'].recv(timeout=500)
-            if item is None:
-                data['receive_none_counter'] += 1
-                if data['receive_none_counter'] >= 5 and data['receive_none_counter'] % 5 == 0:
-                    print(f'Theta filter process has not received any LFP data for a while...')
-            else:
-                data['receive_none_counter'] = 0
-
+            if item is not None:
                 json_item = json.loads(item)
                 lfps=json_item['lfpData']
 
@@ -133,15 +119,9 @@ class ThetaFilterProcess:
                 triggered, fLFP, nextTrigger, sampleTime, periodEstimate = data['filter_model'].process_theta_data(lfpVal, sampleTime)
 
                 data['live_publisher'].send(f'trig: {triggered} flfp: {fLFP} next: {nextTrigger} samp: {sampleTime} period est: {periodEstimate}')
-                data['publisher'].send(f'{triggered}')
-            
+                publisher.send(f'{triggered}')
 
-        def cleanup(data):
-            pipe_send.close()
-
-        self._proc = fsgui.process.ProcessObject({}, setup, workload, cleanup)
-        self._proc.start()
-        self.pub_address = pipe_recv.recv()
+        return fsgui.process.build_process_object(setup, workload)
 
 class ThetaFilterParams:
     def __init__(self, targetPhase):
