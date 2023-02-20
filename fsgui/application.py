@@ -6,6 +6,7 @@ import fsgui.util
 import logging
 import multiprocessing as mp
 import multiprocessing.connection
+import traceback
 
 class NodeObject:
     def __init__(self, type_id, instance_id, param_config):
@@ -236,7 +237,7 @@ class FSGuiApplication:
 
     def __get_child_address_map(self, instance_id):
         return {
-            instance_id : self.added_nodes[instance_id].built_process.pub_address
+            instance_id : self.added_nodes[instance_id].built_process[1]
             for instance_id in self.get_node_children_ids(instance_id)
         }
 
