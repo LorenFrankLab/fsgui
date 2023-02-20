@@ -3,7 +3,11 @@ import functools
 import logging
 import fsgui.reporter
 
-def build_process_object(setup, workload, cleanup):
+def build_process_object(setup, workload, cleanup=None):
+    if cleanup is None:
+        def cleanup(reporter, data):
+            pass
+
     app_conn, process_conn = mp.Pipe(duplex=True)
     process_object = ProcessObject(process_conn, setup, workload, cleanup)
     pub_address = app_conn.recv()
