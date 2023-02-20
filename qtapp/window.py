@@ -221,9 +221,18 @@ class FSGuiWidget(QtWidgets.QWidget):
 
         self.layout().addWidget(log_text_widget)
 
+        self._timer = QtCore.QTimer()
+        self._timer.setInterval(500)
+        self._timer.timeout.connect(self.__call_app_process_items)
+        self._timer.start()
+
         self.selected_instance_id = None
         self.__refresh_list()
-
+    
+    def __call_app_process_items(self):
+        # this is necessary to prevent the QTimer from having a pointer
+        # to self.app (thus messing up garbage collection)
+        self.app.process_items()
     
     def __setup_logger(self, text_edit_widget):
         import logging

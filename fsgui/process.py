@@ -1,14 +1,17 @@
-"""
-"""
 import multiprocessing as mp
 import functools
 import logging
+import fsgui.reporter
+
+def build_process_object(setup, workload, cleanup):
+    app_conn, process_conn = mp.Pipe(duplex=True)
+    process_object = ProcessObject(process_conn, setup, workload, cleanup)
+    pub_address = app_conn.recv()
+    return app_conn, pub_address, process_object
 
 class ProcessObject:
-
-    def __init__(self, data, setup, workload, cleanup):
+    def __init__(self, process_conn, setup, workload, cleanup):
         """
-        data: a process-local dict of values, pipes, and connections acting as local memory address space
         setup: acts upon process-local data, queues, conns, and may also create resources (e.g. internet conn)
         workload: executes on process-local data and may access resources (e.g. gpu), may access time
         cleanup: a function that disposes of resources and may close queues
@@ -16,15 +19,30 @@ class ProcessObject:
         # we don't keep a pointer to ctrl_recv so that garbage collection can happen when the thread finishes 
         self._last_signal_sent = None
         ctrl_recv, self._ctrl_sender = mp.Pipe(duplex=False)
-        self._proc = mp.Process(target=self._run, args=(data, setup, workload, cleanup, ctrl_recv,))
+
+        self._proc = mp.Process(target=self._run, args=(process_conn, setup, workload, cleanup, ctrl_recv,))
         self._proc.start()
 
-    def _run(self, data, setup, workload, cleanup, ctrl_receiver):
+        self.start()
+
+    def _run(self, process_conn, setup, workload, cleanup, ctrl_receiver):
         """
         This is the shell of the computation that abstracts away the flow control of starting and pausing computation.
         """
+        reporter = fsgui.reporter.ProcessReporter(process_conn)
+
+        publisher = fsgui.network.UnidirectionalChannelSender()
+        reporter._send_pub_location(publisher.get_location())
+
+        data = {}
+
         # new objects can be saved to the data dict
-        setup(data)
+        try:
+            setup(reporter, data)
+        except Exception as e:
+            reporter.exception(e)
+            cleanup(reporter, data)
+            return
 
         # waiting for a signal {start, end} and blocking infinitely long
         while ctrl_receiver.poll(timeout=None):
@@ -41,7 +59,13 @@ class ProcessObject:
 
             # as long as there's no signal {pause, end}, we jump into the loop w/o blocking
             while not ctrl_receiver.poll():
-                workload(data)
+                try:
+                    workload(reporter, publisher, data)
+                except Exception as e:
+                    reporter.exception(e)
+                    cleanup(reporter, data)
+                    return
+
             # we should receive immediately here
             signal = ctrl_receiver.recv()
             if signal == 'pause':
@@ -51,7 +75,11 @@ class ProcessObject:
                 break
             else:
                 raise AssertionError('Unknown control signal (should be "pause" or "end")')
-        cleanup(data)
+        try:
+            cleanup(reporter, data)
+        except Exception as e:
+            reporter.exception(e)
+            return
 
     def start(self):
         if self._last_signal_sent == 'start':

@@ -3,8 +3,9 @@
 import itertools
 import fsgui.config
 import fsgui.util
-
 import logging
+import multiprocessing as mp
+import multiprocessing.connection
 
 class NodeObject:
     def __init__(self, type_id, instance_id, param_config):
@@ -41,7 +42,7 @@ class NodeType:
     @property
     def datatype(self):
         return None
-
+    
 class FSGuiApplication:
     def __init__(self, node_providers=[], config=None):
         if config is None:
@@ -59,6 +60,37 @@ class FSGuiApplication:
             node_type.type_id() : NodeType(type_id=node_type.type_id(), node_class=node_type.node_class(), type_object=node_type)
             for node_type in itertools.chain.from_iterable([provider.get_nodes() for provider in node_providers])
         }
+    
+    def process_items(self):
+        conns = [node.built_process[0] for node in self.added_nodes.values() if node.built_process is not None]
+        ready_conns = multiprocessing.connection.wait(conns, timeout=0)
+
+        for conn in ready_conns:
+            data = conn.recv()
+            assert 'type' in data
+
+            if data['type'] == 'exception':
+                e = data['exception']
+                trace_string = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+                logging.info(f'<pre>{trace_string}</pre>')
+                logging.exception(f'{repr(e)}')
+            elif data['type'] == 'debug_message':
+                logging.debug(data['string'])
+            elif data['type'] == 'info_message':
+                logging.info(data['string'])
+            elif data['type'] == 'warning_message':
+                logging.warning(data['string'])
+            elif data['type'] == 'error_message':
+                logging.error(data['string'])
+            elif data['type'] == 'critical_message':
+                logging.critical(data['string'])
+            elif data['type'] == 'add_endpoint':
+                self.add_node_reporting_endpoint(data['endpoint'])
+            else:
+                raise ValueError('unknown type {}'.format(data['type']))
+
+    def add_node_reporting_endpoint(self, endpoint):
+        print(f'got an endpoint: {endpoint}')
     
     def build_all(self):
         for instance_id in self.added_nodes.keys():

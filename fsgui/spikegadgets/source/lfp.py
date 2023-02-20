@@ -1,10 +1,12 @@
 import multiprocessing as mp
 import fsgui.process
 import fsgui.node
+import fsgui.network
 import fsgui.spikegadgets.trodes
+import fsgui.spikegadgets.trodesnetwork as trodesnetwork
 import logging
 import json
-
+import time
 
 class LFPDataType(fsgui.node.NodeTypeObject):
     def __init__(self, type_id, network_location):
@@ -47,34 +49,27 @@ class LFPDataType(fsgui.node.NodeTypeObject):
         ]
 
     def build(self, config, addr_map):
-        import fsgui.spikegadgets.trodesnetwork as trodesnetwork
-        trodesnetwork.SourceSubscriber('source.lfp', server_address = f'{self.network_location.address}:{self.network_location.port}')
-        return LFPSource(network_location = self.network_location)
-
-class LFPSource:
-    def __init__(self, network_location):
-        pipe_recv, pipe_send = mp.Pipe(duplex=False)
-
-        import time
-
-        def setup(data):
-            import fsgui.network
-            import fsgui.spikegadgets.trodesnetwork as trodesnetwork
-            data['publisher'] = fsgui.network.UnidirectionalChannelSender()
-            pipe_send.send(data['publisher'].get_location())
-
-            # set up the actual subscriber
-            data['lfp_sub'] = trodesnetwork.SourceSubscriber('source.lfp', server_address = f'{network_location.address}:{network_location.port}')
-
-        def workload(data):
-            lfp_data = data['lfp_sub'].receive(timeout=50)
-            if lfp_data is not None:
-                data['publisher'].send(f'{json.dumps(lfp_data)}')
+        try:
+            # check connection to fail during build rather than process runtime
+            trodesnetwork.SourceSubscriber('source.lfp', server_address = f'{self.network_location.address}:{self.network_location.port}')
+        except Exception:
+            raise ValueError('Could not connect to trodes source')
         
-        def cleanup(data):
-            pipe_send.close()
+        def setup(reporter, data):
+            data['lfp_sub'] = trodesnetwork.SourceSubscriber('source.lfp', server_address = f'{self.network_location.address}:{self.network_location.port}')
+            data['receive_none_counter'] = 0
 
-        self._proc = fsgui.process.ProcessObject({}, setup, workload, cleanup)
-        self._proc.start()
+        def workload(reporter, publisher, data):
+            lfp_data = data['lfp_sub'].receive(timeout=50)
+            if lfp_data is None:
+                data['receive_none_counter'] += 1
+                if data['receive_none_counter'] > 40 and data['receive_none_counter'] % 40 == 0:
+                    reporter.info(f'LFP source has received any LFP data from Trodes in a while...')
+            else:
+                data['receive_none_counter'] = 0
+                publisher.send(f'{json.dumps(lfp_data)}')
+        
+        def cleanup(reporter, data):
+            pass
 
-        self.pub_address = pipe_recv.recv()
+        return fsgui.process.build_process_object(setup, workload, cleanup)
