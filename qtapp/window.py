@@ -154,22 +154,51 @@ class FileMenu(QtWidgets.QMenu):
         return filename
 
 class FSGuiWindow(QtWidgets.QMainWindow):
-    def __init__(self, args, app):
+    def __init__(self, args, node_providers, config = fsgui.config.FileConfig('config.yaml')):
         super().__init__()
-        self.app = app
+        self._args = args
+        self._node_providers = node_providers
 
-        self.widget = FSGuiWidget(args, app, parent=self)
-        self.setCentralWidget(self.widget)
+        self.container = qtgui.GuiContainerWidget()
+        self.setCentralWidget(self.container)
         self.setWindowTitle('FSGui')
+
+        self.__set_config_and_app(config)
 
         menu = FileMenu(self)
         self.menuBar().addMenu(menu)
+        menu.new_triggered.connect(self.__handle_new)
+        menu.open_triggered.connect(self.__handle_open)
+        menu.save_triggered.connect(self.__handle_save)
+        menu.save_as_triggered.connect(self.__handle_save_as)
+   
+    def __set_config_and_app(self, config):
+        self._config = config
+        self._app = fsgui.application.FSGuiApplication(
+            node_providers=self._node_providers,
+            config=config.get_config()
+        )
+        self.container.setWidget(
+            FSGuiWidget(self._args, self._app, parent=self))
 
-        menu.new_triggered.connect(lambda x: print(f'triggered new {x}'))
-        menu.open_triggered.connect(lambda x: print(f'triggered open {x}'))
-        menu.save_triggered.connect(lambda: print('triggered save'))
-        menu.save_as_triggered.connect(lambda x: print(f'triggered save as {x}'))
+    def __handle_new(self, filename):
+        self.__handle_open(filename)
+        logging.info(f'New config file: {filename}')
 
+    def __handle_open(self, filename):
+        config = fsgui.config.FileConfig(filename)
+        self.__set_config_and_app(config)
+        logging.info(f'Opened config file: {filename}')
+
+    def __handle_save(self):
+        self._config.write_config(self._app.get_save_config())
+        logging.info('Saved config file.')
+
+    def __handle_save_as(self, filename):
+        self._config = fsgui.config.FileConfig(filename)
+        self.__handle_save()
+        logging.info(f'Saved config file: {filename}')
+    
 class FSGuiWidget(QtWidgets.QWidget):
     def __init__(self, args, app, parent=None):
         super().__init__(parent=parent)

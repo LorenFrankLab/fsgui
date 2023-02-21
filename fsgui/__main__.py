@@ -24,12 +24,9 @@ if __name__ == "__main__":
     qtgui.run_qt_app(functools.partial(
         qtapp.window.FSGuiWindow,
         sys.argv,
-        fsgui.application.FSGuiApplication(
-            node_providers = [
-                fsgui.spikegadgets.SpikeGadgetsNodeProvider(network_location=network),
-                fsgui.filter.FilterProvider(),
-                fsgui.mock.MockNodeProvider(),
-            ],
-            config = fsgui.config.FileConfig('config.yaml'),
-        )
+        node_providers = [
+            fsgui.spikegadgets.SpikeGadgetsNodeProvider(network_location=network),
+            fsgui.filter.FilterProvider(),
+            fsgui.mock.MockNodeProvider(),
+        ],
     ))

@@ -45,16 +45,12 @@ class NodeType:
         return None
     
 class FSGuiApplication:
-    def __init__(self, node_providers=[], config=None):
-        if config is None:
-            config = fsgui.config.EmptyConfig()
-        self.config = config
-
+    def __init__(self, node_providers=[], config = []):
         self.uid_manager = fsgui.util.UIDManager()
 
         self.added_nodes = {
             node['instance_id'] : NodeObject(type_id=node['type_id'], instance_id=node['instance_id'], param_config=node)
-            for node in config.node_configs()
+            for node in config
         }
 
         self.available_types = {
@@ -95,10 +91,9 @@ class FSGuiApplication:
                 logging.info(f'<pre>{trace_string}</pre>')
                 logging.exception(f'{repr(e)}')
 
+    def get_save_config(self):
+        return [node.param_config for node in self.added_nodes.values()]
 
-    def add_node_reporting_endpoint(self, endpoint):
-        print(f'got an endpoint: {endpoint}')
-    
     def build_all(self):
         for instance_id in self.added_nodes.keys():
             try:
@@ -151,11 +146,6 @@ class FSGuiApplication:
 
     def __del__(self):
         logging.info(f'Deleting: {self}')
-        self.__write_configuration()
-
-    def __write_configuration(self):
-        self.config.write_config([node.param_config for node in self.added_nodes.values()])
-        logging.info(f'Saved: {self.config}')
 
     def create_node(self, config):
         instance_id = self.uid_manager.assign()
