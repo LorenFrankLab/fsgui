@@ -2,7 +2,8 @@ import multiprocessing as mp
 import fsgui.process
 import fsgui.node
 import fsgui.spikegadgets.trodesnetwork as trodesnetwork
-
+import functools
+import operator
 import time
 
 
@@ -106,17 +107,18 @@ class StateScriptFunctionActionType(fsgui.node.NodeTypeObject):
                     data['sub_values'][sub_name] = (value == 'True')
 
             def evaluate_node(node, data):
-                if 'gate-and' == node['data']['type']:
-                    return functools.reduce(operator.and_, map(lambda n: evaluate_node(n, data), node['children']))
-                elif 'gate-or' == node['data']['type']:
-                    return functools.reduce(operator.or_, map(lambda n: evaluate_node(n, data), node['children']))
-                elif 'gate-nand' == node['data']['type']:
-                    return not functools.reduce(operator.and_, map(lambda n: evaluate_node(n, data), node['children']))
+                if 'gate' == node['data']['type']:
+                    if 'gate-and' == node['data']['value']:
+                        return functools.reduce(operator.and_, map(lambda n: evaluate_node(n, data), node['children']))
+                    elif 'gate-or' == node['data']['value']:
+                        return functools.reduce(operator.or_, map(lambda n: evaluate_node(n, data), node['children']))
+                    elif 'gate-nand' == node['data']['value']:
+                        return not functools.reduce(operator.and_, map(lambda n: evaluate_node(n, data), node['children']))
                 elif 'filter' == node['data']['type']:
                     value = data['sub_values'][node['data']['value']]
                     return value
                 else:
-                    raise ValueError
+                    raise ValueError('evaluate error: {}'.format(node))
             
             evaluation = evaluate_node(filter_tree, data)
             
