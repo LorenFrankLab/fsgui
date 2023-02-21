@@ -9,15 +9,16 @@ import time
 
 class StateScriptFunctionActionType(fsgui.node.NodeTypeObject):
     def __init__(self, type_id, network_location):
+        name = 'StateScript function'
         super().__init__(
             type_id=type_id,
             node_class='action',
-            name='StateScript Function',
+            name=name,
             datatype=None,
             default= {
                 'type_id': type_id,
                 'instance_id': '',
-                'nickname': 'Digital Pulsetrain',
+                'nickname': name,
                 'filter_id': None,
                 'lockout_time': 0,
                 'functNum': 0,
