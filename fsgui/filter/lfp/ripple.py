@@ -168,7 +168,7 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 if triggered:
                     logging.info(f'ripple: {triggered}')
 
-                publisher.send(triggered)
+                publisher.send(bool(triggered))
                 reporter.send({'sum': t2})
 
         return fsgui.process.build_process_object(setup, workload)
