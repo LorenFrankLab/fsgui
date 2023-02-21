@@ -94,6 +94,13 @@ class FSGuiApplication:
     def get_save_config(self):
         return [node.param_config for node in self.added_nodes.values()]
 
+    def get_reporters_map(self):
+        return {
+            node_id: node.built_process[2]
+            for node_id, node in self.added_nodes.items()
+            if node.built_process is not None
+        }
+
     def build_all(self):
         for instance_id in self.added_nodes.keys():
             try:

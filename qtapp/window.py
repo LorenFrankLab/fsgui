@@ -2,6 +2,7 @@ from PyQt6 import QtWidgets, QtCore, QtGui
 
 import fsgui.application
 import qtapp.component
+import qtapp.reporting
 import qtgui
 import functools
 import qtapp.logging
@@ -222,6 +223,9 @@ class FSGuiWidget(QtWidgets.QWidget):
 
         self.graph_dialog = qtapp.component.FSGuiDependencyGraphDialog(self)
         self.graph_dialog.show()
+
+        self.live_dialog = qtapp.reporting.FSGuiLiveDialog(self.app, self)
+        self.live_dialog.show()
 
         # self.graph_container = qtgui.GuiContainerWidget(f=QtCore.Qt.WindowType.Window)
 

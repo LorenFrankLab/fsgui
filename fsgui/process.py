@@ -69,7 +69,7 @@ class ProcessObject:
         process_conn.send(publisher.get_location())
 
         reporter = fsgui.network.UnidirectionalChannelSender()
-        process_conn.send(publisher.get_location())
+        process_conn.send(reporter.get_location())
 
         data = {}
 

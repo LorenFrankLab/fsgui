@@ -369,7 +369,7 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                     {'fn': funct_num}
                 ])
                 data['currently_triggered'] = True
-                reporter.send(True)
+                reporter.send({'val': True})
             elif not evaluation and data['currently_triggered']:
                 data['trodes_sender'].request([
                     'tag',
@@ -378,6 +378,6 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                 ])
                 data['currently_triggered'] = False
                 data['last_triggered'] = None
-                reporter.send(False)
+                reporter.send({'val': False})
  
         return fsgui.process.build_process_object(setup, workload)
