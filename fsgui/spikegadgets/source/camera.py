@@ -54,15 +54,18 @@ class CameraDataType(fsgui.node.NodeTypeObject):
             raise ValueError('Could not connect to Trodes camera')
 
         def setup(logging, data):
-            data['camera_sub'] = trodesnetwork.SourceSubscriber('source.position', server_address = f'{network_location.address}:{network_location.port}')
+            data['camera_sub'] = trodesnetwork.SourceSubscriber('source.position', server_address = f'{self.network_location.address}:{self.network_location.port}')
+            data['receive_none_counter'] = 0
 
         def workload(logging, publisher, reporter, data):
             camera_data = data['camera_sub'].receive(timeout=50)
+            if camera_data is None:
+                data['receive_none_counter'] += 1
+                if data['receive_none_counter'] > 40 and data['receive_none_counter'] % 40 == 0:
+                    logging.info(f'Camera source has not received any camera data from Trodes in a while...')
             if camera_data is not None:
-                publisher.send({
-                    'x': camera_data['x'],
-                    'y': camera_data['y'],
-                })
+                data['receive_none_counter'] = 0
+                publisher.send(camera_data)
 
         return fsgui.process.build_process_object(setup, workload)
         
