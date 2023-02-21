@@ -63,7 +63,7 @@ class LFPDataType(fsgui.node.NodeTypeObject):
             if lfp_data is None:
                 data['receive_none_counter'] += 1
                 if data['receive_none_counter'] > 40 and data['receive_none_counter'] % 40 == 0:
-                    logging.info(f'LFP source has received any LFP data from Trodes in a while...')
+                    logging.info(f'LFP source has not received any LFP data from Trodes in a while...')
             else:
                 data['receive_none_counter'] = 0
                 publisher.send(lfp_data)
