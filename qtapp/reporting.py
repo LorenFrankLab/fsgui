@@ -30,12 +30,39 @@ class RealtimePlot(QtWidgets.QWidget):
         self.setLayout(layout)
 
     def plot(self):
-        if len(self.data) > 0:
-            which_node = random.choice(list(self.data.values()))
-            if len(which_node) > 0:
-                data_array = random.choice(list(which_node.values()))
+        self.graphWidget.plot(self.data.get_slice, clear=True)
 
-                self.graphWidget.plot(data_array.get_slice, clear=True)
+class PlotChoice(QtWidgets.QWidget):
+    def __init__(self, app, data_buffers):
+        super().__init__()
+        self.setLayout(QtWidgets.QVBoxLayout())
+
+
+        self.data_buffers = data_buffers
+
+        self.tuple_map = {}
+        self.button_map = {}
+        self.widget_map = {}
+    
+    def update_publishers(self):
+        buffer_tuples = {(node_id,key) for node_id in self.data_buffers.keys() for key in self.data_buffers[node_id].keys()}
+        widget_tuples = set(self.button_map.keys())
+
+        for tup in buffer_tuples - widget_tuples:
+            # add this tup
+            widget = QtWidgets.QPushButton(f'Show/hide {tup[1]}')
+            widget.clicked.connect(functools.partial(self.__handle_button,tup))
+            self.layout().addWidget(widget)
+            self.button_map[tup] = widget
+    
+    def __handle_button(self, tup):
+        if tup in self.widget_map:
+            widget = self.widget_map.pop(tup)
+            self.layout().removeWidget(widget)
+        else:
+            widget = RealtimePlot(self.data_buffers[tup[0]][tup[1]])
+            self.widget_map[tup] = widget
+            self.layout().addWidget(widget)
 
 class FSGuiLiveDialog(QtWidgets.QDialog):
     def __init__(self, app, parent=None):
@@ -47,9 +74,8 @@ class FSGuiLiveDialog(QtWidgets.QDialog):
 
         self.data_buffers = {}
 
-        self.plot_widget = RealtimePlot(self.data_buffers)
-        # self.plot_widget = RealtimePlot(fsgui.nparray.CircularArray(3000))
-        self.layout().addWidget(self.plot_widget)
+        self.plot_choice = PlotChoice(self.app, self.data_buffers)
+        self.layout().addWidget(self.plot_choice)
 
         self.poller = zmq.Poller()
         self.registered_location_set = set()
@@ -64,8 +90,8 @@ class FSGuiLiveDialog(QtWidgets.QDialog):
         # 20ms deadline.
         t0 = time.time()
 
-        # 6 out of 20 ms is spent plotting.
-        self.plot_widget.plot()
+        for widget in self.plot_choice.widget_map.values():
+            widget.plot()
 
         t1 = time.time()
         
@@ -73,12 +99,15 @@ class FSGuiLiveDialog(QtWidgets.QDialog):
 
         t2 = time.time()
 
-        # 0 out of 20 ms is spent polling.
         self.__poll_data()
 
         t3 = time.time()
 
-        print(f't1: {t1-t0:.3f}, t2: {t2-t1:.3f}, t3: {t3-t2:.3f}')
+        self.plot_choice.update_publishers()
+
+        t4 = time.time()
+
+        print(f't1: {t1-t0:.3f}, t2: {t2-t1:.3f}, t3: {t3-t2:.3f}, t4: {t4-t3:.3f}, total: {t4-t0:.3f}')
 
     def __update_publishers(self):
         app_reporter_map = self.app.get_reporters_map()
