@@ -7,6 +7,7 @@ import qtapp.component
 import qtgui
 import functools
 import qtapp.logging
+import fsgui.writer
 
 import traceback
 import logging
@@ -77,6 +78,9 @@ class FSGuiLiveDialog(QtWidgets.QDialog):
         self.plot_choice = PlotChoice(self.app, self.data_buffers)
         self.layout().addWidget(self.plot_choice)
 
+        self.writer = fsgui.writer.HDFWriter(fsgui.writer.generate_filename('fsgui_log'))
+        self.buffered_writers = {}
+
         self.poller = zmq.Poller()
         self.registered_location_set = set()
         self.location_to_sub = {}
@@ -85,6 +89,12 @@ class FSGuiLiveDialog(QtWidgets.QDialog):
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.__run_update_function)
         self.timer.start(20)
+    
+    def __del__(self):
+        print(f'Deleting: {self}')
+        for buffered_writer in self.buffered_writers.values():
+            buffered_writer.flush()
+        self.writer.close()
     
     def __run_update_function(self):
         # 20ms deadline.
@@ -142,7 +152,8 @@ class FSGuiLiveDialog(QtWidgets.QDialog):
             while data is not None:
                 for key, value in data.items():
                     node_data_buffers.setdefault(key, fsgui.nparray.CircularArray(3000)).place(value)
+                    self.buffered_writers.setdefault((node_id, key), fsgui.writer.BufferedHDFWriter(node_id, key, self.writer, 256)).append(value)
                 
                 data = sub.recv(timeout=0)
-            
+
 
