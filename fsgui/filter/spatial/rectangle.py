@@ -100,7 +100,7 @@ class AxisAlignedRectangleFilterType(fsgui.node.NodeTypeObject):
             data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
             data['filter_model'] = AxisAlignedRectangleFilter(lower_left, upper_right)
 
-        def workload(logging, messages, publisher, reporter, data):
+        def workload(connection, publisher, reporter, data):
             item = data['sub'].recv(timeout=500)
             if item is not None:
                 x, y = tuple(map(float, item.split(',')))

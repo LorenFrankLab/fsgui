@@ -94,7 +94,7 @@ class GeometryFilterType(fsgui.node.NodeTypeObject):
             data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
             data['filter_model'] = PolygonFilter(shapely_polygon)
 
-        def workload(logging, messages, publisher, reporter, data):
+        def workload(connection, publisher, reporter, data):
             item = data['sub'].recv(timeout=500)
             if item is not None:
                 publisher.send(

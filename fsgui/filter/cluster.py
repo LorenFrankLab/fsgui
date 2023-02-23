@@ -84,7 +84,7 @@ class DecoderType(fsgui.node.NodeTypeObject):
 
             data['filter_model'] = decoder
 
-        def workload(logging, messages, publisher, reporter, data):
+        def workload(connection, publisher, reporter, data):
             results = dict(data['poller'].poll(timeout=500))
 
             if data['histogram_sub'].sock in results:

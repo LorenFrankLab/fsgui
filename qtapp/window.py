@@ -10,14 +10,32 @@ import qtapp.logging
 import traceback
 import logging
 import graphviz
+
+class FSGuiNodeLiveOptions(qtgui.GuiVBoxContainer):
+    message_node = QtCore.pyqtSignal(object)
+    def __init__(self, gui_config, enabled):
+        super().__init__()
+
+        self.layout().addWidget(QtWidgets.QLabel(f'config: {gui_config}'))
+
+        for item_config in gui_config:
+            if item_config['type'] == 'button':
+                button = QtWidgets.QPushButton(item_config['label'])
+                button.setEnabled(enabled)
+                if 'pressed' in item_config:
+                    button.pressed.connect(functools.partial(self.message_node.emit,item_config['pressed']))
+                self.layout().addWidget(button)
+            else:
+                self.layout().addWidget(QtWidgets.QLabel(f'Unknown: {item_config}'))
    
 class FSGuiNodeConfigWidget(qtgui.GuiVBoxContainer):
+    message_node = QtCore.pyqtSignal(object)
     edit_node = QtCore.pyqtSignal(object)
     build_node = QtCore.pyqtSignal()
     unbuild_node = QtCore.pyqtSignal()
     delete_node = QtCore.pyqtSignal()
 
-    def __init__(self, datatype, typename, form_config, status, form_extra=[]):
+    def __init__(self, datatype, typename, form_config, gui_config, status, form_extra=[]):
         """
         """
         super().__init__()
@@ -49,6 +67,10 @@ class FSGuiNodeConfigWidget(qtgui.GuiVBoxContainer):
                 'function': lambda: self.delete_node.emit(),
             },
         ], status))
+
+        self._live_options = FSGuiNodeLiveOptions(gui_config, enabled=(status == 'built'))
+        self._live_options.message_node.connect(lambda x: self.message_node.emit(x))
+        self.layout().addWidget(self._live_options)
         self.layout().addStretch(2)
 
 class FSGuiNodeAddWidget(qtgui.GuiVBoxContainer):
@@ -373,7 +395,14 @@ class FSGuiWidget(QtWidgets.QWidget):
             datatype = self.app.available_types[type_id].type_object.datatype()
             typename = self.app.available_types[type_id].type_object.name()
             form_config = self.app.available_types[node.type_id].type_object.write_template(node.param_config)
-            widget = FSGuiNodeConfigWidget(datatype, typename, form_config, node.status, self.__get_form_extra())
+
+            if hasattr(self.app.available_types[node.type_id].type_object, 'get_gui_config'):
+                gui_config = self.app.available_types[node.type_id].type_object.get_gui_config()
+            else:
+                gui_config = []
+
+            widget = FSGuiNodeConfigWidget(datatype, typename, form_config, gui_config, node.status, self.__get_form_extra())
+            widget.message_node.connect(self.__handle_message_node)
             widget.edit_node.connect(self.__handle_edit_node)
             widget.build_node.connect(self.__handle_build_node)
             widget.unbuild_node.connect(self.__handle_unbuild_node)
@@ -404,6 +433,13 @@ class FSGuiWidget(QtWidgets.QWidget):
     def __handle_create_node(self, config):
         self.selected_instance_id = self.app.create_node(config)
         self.__refresh_list()
+        self.__refresh_config_box()
+
+    def __handle_message_node(self, message):
+        try:
+            self.app.send_message_to_process(self.selected_instance_id, message)
+        except Exception as e:
+            self.__log_exception(e)
         self.__refresh_config_box()
 
     def __handle_edit_node(self, config):

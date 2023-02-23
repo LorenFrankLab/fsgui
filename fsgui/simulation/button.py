@@ -4,20 +4,34 @@ import multiprocessing as mp
 import random
 import time
 
-class BinGeneratorType(fsgui.node.NodeTypeObject):
+class ButtonSourceType(fsgui.node.NodeTypeObject):
     def __init__(self, type_id):
-        name='Bin generator type'
+        name='Button source type'
         super().__init__(
             type_id=type_id,
             node_class='source',
             name=name,
-            datatype='bin_id',
+            datatype='bool',
             default= {
                 'type_id': type_id,
                 'instance_id': '',
                 'nickname': name,
             }
         )
+    
+    def get_gui_config(self):
+        return [
+            {
+                'type': 'button',
+                'label': 'Turn on',
+                'pressed': True
+            },
+            {
+                'type': 'button',
+                'label': 'Turn off',
+                'pressed': False
+            },
+        ]
 
     def write_template(self, config = None):
         if config is None:
@@ -44,17 +58,17 @@ class BinGeneratorType(fsgui.node.NodeTypeObject):
         ]
     
     def build(self, config, param_map):
-        def setup(logging, data):
-            data['value'] = 0
+        def setup(connection, data):
+            data['value'] = False
 
         def workload(connection, publisher, reporter, data):
-            data['value'] += random.choice([-1,0, 0, 0,1])
-            data['value'] %= 20
+            if connection.pipe_poll(timeout = 0):
+                msg_data = connection.pipe_recv()
+                data['value'] = msg_data
+                print(f'received: {msg_data}')
 
-            value = data['value']
-
-            publisher.send(value)
-            reporter.send({'bin_value': value})
+            publisher.send(data['value'])
+            reporter.send({'button_value': data['value']})
             time.sleep(0.01)
         
         return fsgui.process.build_process_object(setup, workload)

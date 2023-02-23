@@ -58,7 +58,7 @@ class TimestampDataType(fsgui.node.NodeTypeObject):
         def setup(reporter, data):
             data['sub'] = trodesnetwork.SourceSubscriber('source.lfp', server_address = f'{self.network_location.address}:{self.network_location.port}')
 
-        def workload(logging, messages, publisher, reporter, data):
+        def workload(connection, publisher, reporter, data):
             timestamp_data = data['sub'].receive(timeout=50)
             if timestamp_data is not None:
                 hardware_ts = timestamp_data['localTimestamp']

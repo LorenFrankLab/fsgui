@@ -58,12 +58,12 @@ class LFPDataType(fsgui.node.NodeTypeObject):
             data['lfp_sub'] = trodesnetwork.SourceSubscriber('source.lfp', server_address = f'{self.network_location.address}:{self.network_location.port}')
             data['receive_none_counter'] = 0
 
-        def workload(logging, messages, publisher, reporter, data):
+        def workload(connection, publisher, reporter, data):
             lfp_data = data['lfp_sub'].receive(timeout=50)
             if lfp_data is None:
                 data['receive_none_counter'] += 1
                 if data['receive_none_counter'] > 40 and data['receive_none_counter'] % 40 == 0:
-                    logging.info(f'LFP source has not received any LFP data from Trodes in a while...')
+                    connection.info(f'LFP source has not received any LFP data from Trodes in a while...')
             else:
                 data['receive_none_counter'] = 0
                 publisher.send(lfp_data)

@@ -15,7 +15,7 @@ def build_process_object(setup, workload, cleanup=None):
 
     return app_conn, pub_address, reporter_address, process_object
 
-class ProcessLogger:
+class ProcessConnection:
     def __init__(self, conn):
         self.conn = conn
     
@@ -46,16 +46,12 @@ class ProcessLogger:
     def exception(self, exception):
         self.__send_message('exception', exception)
 
-class MessagesReceiver:
-    def __init__(self, pipe):
-        self.pipe = pipe
+    def pipe_recv(self):
+        return self.conn.recv()
+
+    def pipe_poll(self, timeout):
+        return self.conn.poll(timeout)
     
-    def recv(self, *args, **kwargs):
-        self.pipe.recv(*args, **kwargs)
-
-    def poll(self, *args, **kwargs):
-        self.pipe.poll(*args, **kwargs)
-
 class ProcessObject:
     def __init__(self, process_conn, setup, workload, cleanup):
         """
@@ -73,8 +69,7 @@ class ProcessObject:
         """
         This is the shell of the computation that abstracts away the flow control
         """
-        logging = ProcessLogger(process_conn)
-        messages = MessagesReceiver(process_conn)
+        connection = ProcessConnection(process_conn)
 
         publisher = fsgui.network.UnidirectionalChannelSender()
         process_conn.send(publisher.get_location())
@@ -86,13 +81,13 @@ class ProcessObject:
 
         # new objects can be saved to the data dict
         try:
-            setup(logging, data)
+            setup(connection, data)
             while not stop_receiver.poll():
-                workload(logging, messages, publisher, reporter, data)
+                workload(connection, publisher, reporter, data)
         except Exception as e:
-            logging.exception(e)
+            connection.exception(e)
         finally:
-            cleanup(logging, data)
+            cleanup(connection, data)
 
     def __del__(self):
         """

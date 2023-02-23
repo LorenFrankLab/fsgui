@@ -98,7 +98,7 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
             data['filter_model'] = encoder
             data['update_model_bool'] = False
 
-        def workload(logging, messages, publisher, reporter, data):
+        def workload(connection, publisher, reporter, data):
             start_time = time.time()
             results = dict(data['poller'].poll(timeout=500))
 

@@ -154,7 +154,7 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
             data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
             data['filter_model'] = rip_filter
 
-        def workload(logging, messages, publisher, reporter, data):
+        def workload(connection, publisher, reporter, data):
             t0 = time.time()
 
             item = data['sub'].recv(timeout=500)

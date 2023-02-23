@@ -338,7 +338,7 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
             data['last_triggered'] = None
             data['currently_triggered'] = False
 
-        def workload(logging, messages, publisher, reporter, data):
+        def workload(connection, publisher, reporter, data):
             # loop updates all of the sub_values
             for sub_name, receiver in data['sub_receivers'].items():
                 value = receiver.recv(timeout=0)
