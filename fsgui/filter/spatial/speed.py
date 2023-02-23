@@ -91,7 +91,7 @@ class SpeedFilterType(fsgui.node.NodeTypeObject):
             data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
             data['filter_model'] = SpeedFilter()
 
-        def workload(reporter, publisher, data):
+        def workload(logging, messages, publisher, reporter, data):
             item = data['sub'].recv(timeout=500)
             if item is not None:
                 x, y = tuple(map(float, item.split(',')))

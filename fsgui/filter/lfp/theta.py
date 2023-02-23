@@ -104,7 +104,7 @@ class ThetaFilterType(fsgui.node.NodeTypeObject):
             data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
             data['filter_model'] = theta_filter
 
-        def workload(logging, publisher, reporter, data):
+        def workload(logging, messages, publisher, reporter, data):
             item = data['sub'].recv(timeout=500)
             if item is not None:
                 lfpVal=item['lfpData'][tetrode_id]

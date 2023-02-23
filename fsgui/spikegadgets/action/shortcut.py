@@ -99,7 +99,7 @@ class StateScriptFunctionActionType(fsgui.node.NodeTypeObject):
 
             data['last_triggered'] = None
 
-        def workload(reporter, publisher, data):
+        def workload(logging, messages, publisher, reporter, data):
             # loop updates all of the sub_values
             for sub_name, receiver in data['sub_receivers'].items():
                 value = receiver.recv(timeout=200)

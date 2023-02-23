@@ -46,6 +46,16 @@ class ProcessLogger:
     def exception(self, exception):
         self.__send_message('exception', exception)
 
+class MessagesReceiver:
+    def __init__(self, pipe):
+        self.pipe = pipe
+    
+    def recv(self, *args, **kwargs):
+        self.pipe.recv(*args, **kwargs)
+
+    def poll(self, *args, **kwargs):
+        self.pipe.poll(*args, **kwargs)
+
 class ProcessObject:
     def __init__(self, process_conn, setup, workload, cleanup):
         """
@@ -64,6 +74,7 @@ class ProcessObject:
         This is the shell of the computation that abstracts away the flow control
         """
         logging = ProcessLogger(process_conn)
+        messages = MessagesReceiver(process_conn)
 
         publisher = fsgui.network.UnidirectionalChannelSender()
         process_conn.send(publisher.get_location())
@@ -77,7 +88,7 @@ class ProcessObject:
         try:
             setup(logging, data)
             while not stop_receiver.poll():
-                workload(logging, publisher, reporter, data)
+                workload(logging, messages, publisher, reporter, data)
         except Exception as e:
             logging.exception(e)
         finally:

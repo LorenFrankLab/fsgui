@@ -57,7 +57,7 @@ class CameraDataType(fsgui.node.NodeTypeObject):
             data['camera_sub'] = trodesnetwork.SourceSubscriber('source.position', server_address = f'{self.network_location.address}:{self.network_location.port}')
             data['receive_none_counter'] = 0
 
-        def workload(logging, publisher, reporter, data):
+        def workload(logging, messages, publisher, reporter, data):
             camera_data = data['camera_sub'].receive(timeout=50)
             if camera_data is None:
                 data['receive_none_counter'] += 1

@@ -58,7 +58,7 @@ class LFPDataType(fsgui.node.NodeTypeObject):
             data['lfp_sub'] = trodesnetwork.SourceSubscriber('source.lfp', server_address = f'{self.network_location.address}:{self.network_location.port}')
             data['receive_none_counter'] = 0
 
-        def workload(logging, publisher, reporter, data):
+        def workload(logging, messages, publisher, reporter, data):
             lfp_data = data['lfp_sub'].receive(timeout=50)
             if lfp_data is None:
                 data['receive_none_counter'] += 1

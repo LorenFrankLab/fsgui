@@ -58,7 +58,7 @@ class RandomGeneratorProcess:
             data['publisher'] = fsgui.network.UnidirectionalChannelSender()
             pipe_send.send(data['publisher'].get_location())
 
-        def workload(data):
+        def workload(logging, messages, publisher, reporter, data):
             value = random.random()
             data['publisher'].send(f'{value}')
             time.sleep(0.01)
@@ -122,7 +122,7 @@ class BinGeneratorProcess:
             data['publisher'] = fsgui.network.UnidirectionalChannelSender()
             pipe_send.send(data['publisher'].get_location())
 
-        def workload(data):
+        def workload(logging, messages, publisher, reporter, data):
             value = random.choice(range(20))
             data['publisher'].send(f'{value}')
             time.sleep(0.01)
@@ -195,7 +195,7 @@ class MockGamePositionProcess:
             data['publisher'] = fsgui.network.UnidirectionalChannelSender()
             pipe_send.send(data['publisher'].get_location())
 
-        def workload(data):
+        def workload(logging, messages, publisher, reporter, data):
             value = data['game_receiver'].recv(timeout=500)
             if value is not None:
                 value_splits = value.split(',')
@@ -316,7 +316,7 @@ class LFPPlaybackProcess:
             data['lfps'] = decoded['datas']
             data['sample_index'] = 0
 
-        def workload(data):
+        def workload(logging, messages, publisher, reporter, data):
             loop_start_s = time.time()
 
             if not data['sample_index'] < len(data['lfps']):
