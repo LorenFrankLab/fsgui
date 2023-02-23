@@ -4,8 +4,8 @@ import functools
 
 import fsgui.application
 import fsgui.config
-import fsgui.mock
 import fsgui.filter
+import fsgui.simulation
 import fsgui.spikegadgets
 import qtapp
 import qtgui
@@ -27,6 +27,6 @@ if __name__ == "__main__":
         node_providers = [
             fsgui.spikegadgets.SpikeGadgetsNodeProvider(network_location=network),
             fsgui.filter.FilterProvider(),
-            fsgui.mock.MockNodeProvider(),
+            fsgui.simulation.SimulationNodeProvider(),
         ],
     ))
