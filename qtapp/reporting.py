@@ -18,6 +18,7 @@ import time
 import zmq
 import multiprocessing as mp
 import random
+import numpy as np
    
 class RealtimePlot(QtWidgets.QWidget):
     def __init__(self, data):
@@ -31,7 +32,7 @@ class RealtimePlot(QtWidgets.QWidget):
         self.setLayout(layout)
 
     def plot(self):
-        self.graphWidget.plot(self.data.get_slice, clear=True)
+        self.graphWidget.plot(np.flip(self.data.array), clear=True)
 
 class PlotChoice(QtWidgets.QWidget):
     def __init__(self, app, data_buffers):
