@@ -24,12 +24,8 @@ class ButtonSourceType(fsgui.node.NodeTypeObject):
             {
                 'type': 'button',
                 'label': 'Turn on',
-                'pressed': True
-            },
-            {
-                'type': 'button',
-                'label': 'Turn off',
-                'pressed': False
+                'pressed': True,
+                'released': False,
             },
         ]
 
@@ -69,6 +65,6 @@ class ButtonSourceType(fsgui.node.NodeTypeObject):
 
             publisher.send(data['value'])
             reporter.send({'button_value': data['value']})
-            time.sleep(0.01)
+            time.sleep(0.000666)
         
         return fsgui.process.build_process_object(setup, workload)

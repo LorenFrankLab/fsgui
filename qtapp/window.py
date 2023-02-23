@@ -24,6 +24,8 @@ class FSGuiNodeLiveOptions(qtgui.GuiVBoxContainer):
                 button.setEnabled(enabled)
                 if 'pressed' in item_config:
                     button.pressed.connect(functools.partial(self.message_node.emit,item_config['pressed']))
+                if 'released' in item_config:
+                    button.released.connect(functools.partial(self.message_node.emit,item_config['released']))
                 self.layout().addWidget(button)
             else:
                 self.layout().addWidget(QtWidgets.QLabel(f'Unknown: {item_config}'))
@@ -440,7 +442,6 @@ class FSGuiWidget(QtWidgets.QWidget):
             self.app.send_message_to_process(self.selected_instance_id, message)
         except Exception as e:
             self.__log_exception(e)
-        self.__refresh_config_box()
 
     def __handle_edit_node(self, config):
         try:
