@@ -90,6 +90,13 @@ class FSGuiApplication:
                 trace_string = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
                 logging.info(f'<pre>{trace_string}</pre>')
                 logging.exception(f'{repr(e)}')
+    
+    def send_message_to_process(self, node_id, message):
+        if self.added_nodes[node_id].built_process is not None:
+            process_pipe = self.added_nodes[node_id].built_process[0]
+            process_pipe.send(message)
+        else:
+            raise ValueError(f"Can not send message to {node_id}. The process is not built. Tried to send: {message}")
 
     def get_save_config(self):
         return [node.param_config for node in self.added_nodes.values()]
