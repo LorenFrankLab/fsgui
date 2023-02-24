@@ -27,6 +27,19 @@ class FSGuiNodeLiveOptions(qtgui.GuiVBoxContainer):
                 if 'released' in item_config:
                     button.released.connect(functools.partial(self.message_node.emit,item_config['released']))
                 self.layout().addWidget(button)
+            elif item_config['type'] == 'checkbox':
+                checkbox = QtWidgets.QCheckBox(item_config['label'])
+                checkbox.setEnabled(enabled)
+
+                def run_checked(activate_state, function, state):
+                    if state == activate_state:
+                        function()
+
+                if 'checked' in item_config:
+                    checkbox.stateChanged.connect(functools.partial(run_checked, 2, functools.partial(self.message_node.emit,item_config['checked'])))
+                if 'unchecked' in item_config:
+                    checkbox.stateChanged.connect(functools.partial(run_checked, 0, functools.partial(self.message_node.emit,item_config['unchecked'])))
+                self.layout().addWidget(checkbox)
             else:
                 self.layout().addWidget(QtWidgets.QLabel(f'Unknown: {item_config}'))
    

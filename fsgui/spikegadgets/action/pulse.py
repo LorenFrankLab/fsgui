@@ -40,11 +40,11 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
     def get_gui_config(self):
         return [
             {
-                'type': 'button',
-                'label': 'Press and hold to activate',
-                'pressed': 'start',
-                'released': 'stop',
-            },
+                'type': 'checkbox',
+                'label': 'enabled',
+                'checked': 'start',
+                'unchecked': 'stop',
+            }
         ]
 
     def write_template(self, config = None):
@@ -348,6 +348,8 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
             data['last_triggered'] = None
             data['currently_triggered'] = False
 
+            data['enabled'] = False
+
         def workload(connection, publisher, reporter, data):
             # loop updates all of the sub_values
             for sub_name, receiver in data['sub_receivers'].items():
@@ -369,14 +371,20 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                 else:
                     raise ValueError('evaluate error: {}'.format(node))
             
-            evaluation = evaluate_node(filter_tree, data)
-
-            override_message = None
+            evaluation = evaluate_node(filter_tree, data) if filter_tree is not None else False
 
             if connection.pipe_poll(timeout = 0):
-                override_message = connection.pipe_recv()
+                message_data = connection.pipe_recv()
+                if message_data == 'start':
+                    data['enabled'] = True
+                elif message_data == 'stop':
+                    data['enabled'] = False
+                else:
+                    raise ValueError(f'message unexpected: {message_data}')
             
-            if override_message == 'start' or override_message is None and evaluation and (data['last_triggered'] is None or time.time() > data['last_triggered'] + lockout_time / 1000.0):
+            evaluation = evaluation and data['enabled']
+            
+            if evaluation and (data['last_triggered'] is None or time.time() > data['last_triggered'] + lockout_time / 1000.0):
                 data['last_triggered'] = time.time()
                 data['trodes_sender'].request([
                     'tag',
@@ -385,7 +393,7 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                 ])
                 data['currently_triggered'] = True
                 reporter.send({'val': True})
-            elif override_message == 'stop' or override_message is None and not evaluation and data['currently_triggered']:
+            elif not evaluation and data['currently_triggered']:
                 data['trodes_sender'].request([
                     'tag',
                     'HRSCTrig',
