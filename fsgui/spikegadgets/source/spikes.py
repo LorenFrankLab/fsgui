@@ -57,11 +57,12 @@ class SpikesDataType(fsgui.node.NodeTypeObject):
             raise ValueError('Could not connect to Trodes spikes')
 
         def setup(reporter, data):
-            data['spikes_sub'] = trodesnetwork.SourceSubscriber('source.waveforms', server_address = f'{network_location.address}:{network_location.port}')
+            data['spikes_sub'] = trodesnetwork.SourceSubscriber('source.waveforms', server_address = f'{self.network_location.address}:{self.network_location.port}')
 
         def workload(connection, publisher, reporter, data):
             spikes_data = data['spikes_sub'].receive(timeout=50)
             if spikes_data is not None:
-                publisher.send(f'{json.dumps(spikes_data)}')
+                print(spikes_data)
+                publisher.send(spikes_data)
        
         return fsgui.process.build_process_object(setup, workload)
