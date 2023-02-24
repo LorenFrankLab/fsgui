@@ -71,18 +71,30 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
         ]
     
     def build(self, config, addr_map):
+        config['mark_ndims'] = 4
+        
 
         spikes_address=addr_map[config['spikes_source']]
         covariate_address=addr_map[config['covariate_source']]
         update_address=addr_map[config['update_signal_source']]
 
         encoder = MarkSpaceEncoder(
-            mark_ndims=1,
+            mark_ndims=config['mark_ndims'],
             covariate_histogram_bins=40,
             weighting_algorithm=None,
             k1=5,
             k2=2,
             )
+
+
+        def compute_mark(datapoint):
+            spike_data = np.atleast_2d(datapoint.data)
+            channel_peaks = np.max(spike_data, axis=1)
+            peak_channel_ind = np.argmax(channel_peaks)
+            t_ind = np.argmax(spike_data[peak_channel_ind])
+            amp_mark = spike_data[:, t_ind]
+
+            return amp_mark
 
         def setup(reporter, data):
             data['spikes_sub'] = fsgui.network.UnidirectionalChannelReceiver(spikes_address)
@@ -103,22 +115,24 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
             results = dict(data['poller'].poll(timeout=500))
 
             if data['spikes_sub'].sock in results:
-                print('have a spike')
-                item = data['spikes_sub'].recv(timeout=500)
-                print(f'time: {(time.time() - start_time) * 1000.0}ms')
-
+                spikes_data = data['spikes_sub'].recv()
                 # we have a spike
-                spikes_data = json.loads(item)
                 samples = np.array(spikes_data['samples'])
-                # print(f'spikes: {samples.shape}')
-                # print(f'samples: {samples}')
-                # print(f't2me: {(time.time() - start_time) * 1000.0}ms')
+                received_time = time.time()
 
-                mark = samples[:,5]
+                mark = compute_mark(samples)
 
                 result = data['filter_model'].query(mark)
-                print(result)
+                time_query = time.time()
+
                 publisher.send(f'{result}')
+
+                reporter.send({
+                    'mark': mark.tolist(),
+                    'histogram_mark': result.tolist() if result is not None else result,
+                    'spike_received_time': received_time - start_time,
+                    'query_time': time_query - start_time,
+                })
 
                 if data['update_model_bool']:
                     data['filter_model'].add_mark(mark)
@@ -145,7 +159,7 @@ class MarkSpaceEncoder:
         self.k2 = k2
 
         self.observations_mark = fsgui.nparray.ArrayList(width=mark_ndims, dtype='float')
-        self.observations_covariate = fsgui.nparray.ArrayList(width=mark_ndims, dtype='float')
+        self.observations_covariate = fsgui.nparray.ArrayList(width=1, dtype='float')
 
         self.histogram_bins = covariate_histogram_bins
         self.weighting = weighting_algorithm
@@ -186,12 +200,14 @@ class MarkSpaceEncoder:
         )
 
         query_weights = self.k1 * np.exp(squared_distance * self.k2)
-        query_covariates = self.observations_covariate.get_slice()
+        query_covariates = np.squeeze(self.observations_covariate.get_slice())
 
         query_histogram, query_histogram_edges = np.histogram(
             a=query_covariates, bins=self.histogram_bins,
             weights=query_weights, normed=False
         )
+
+        return query_histogram
 
     def __normalize_histogram(self, histogram):
         histogram += 1e-7

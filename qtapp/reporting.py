@@ -20,25 +20,78 @@ import multiprocessing as mp
 import random
 import numpy as np
    
-class RealtimePlot(QtWidgets.QWidget):
-    def __init__(self, data):
-        super(RealtimePlot, self).__init__()
+class RealtimePlot(qtgui.GuiZeroMarginVBoxLayoutWidget):
+    def __init__(self, data, label):
+        super().__init__()
         self.data = data
 
         self.graphWidget = pg.PlotWidget()
+        self.graphWidget.setLabel('left', label)
+        self.layout().addWidget(self.graphWidget)
 
-        layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(self.graphWidget)
-        self.setLayout(layout)
+        self.plot_item = pg.PlotDataItem()
+        self.graphWidget.addItem(self.plot_item)
 
     def plot(self):
-        self.graphWidget.plot(np.flip(self.data.array), clear=True)
+        self.plot_item.setData(np.flip(self.data.array))
+
+class RealtimePlot4D(qtgui.GuiZeroMarginVBoxLayoutWidget):
+    def __init__(self, data, label):
+        super().__init__()
+        self.data = data
+
+        self.plot_widget = pg.PlotWidget()
+        self.plot_widget.setLabel('left', label)
+        self.layout().addWidget(self.plot_widget)
+
+        self.plot_item = pg.ScatterPlotItem()
+        self.plot_item.setSymbol('o')  # set the symbol to be a circle
+        self.plot_item.setPen(None)  # remove the border around the symbols
+        self.plot_widget.addItem(self.plot_item)
+
+    def __transform_range(self, values, source_range, target_range):
+        return np.interp(values, source_range, target_range)
+
+    def plot(self):
+        data = self.data.get_slice[:, :500]
+
+        sizes = data[2,:]
+        sizes = self.__transform_range(sizes, [np.min(sizes), np.max(sizes)], [3, 15])
+
+        colors = data[3,:]
+        colors = self.__transform_range(colors, [np.min(colors), np.max(colors)], [0,1])
+
+        self.plot_item.setData(pos=data.T[:,:2], size=sizes, brush=colors)
+
+class HeatmapWidget(qtgui.GuiZeroMarginVBoxLayoutWidget):
+    def __init__(self, data, label):
+        super().__init__()
+        self.data = data
+
+        self.plot_widget = pg.PlotWidget()
+        self.plot_widget.setLabel('left', label)
+        self.layout().addWidget(self.plot_widget)
+
+        self.plot_item = pg.ImageItem()
+        # Set colormap and range for heatmap item
+        colormap = pg.colormap.get("CET-L4")
+        self.plot_item.setLookupTable(colormap.getLookupTable())
+        self.plot_item.setLevels([-3, 3])
+        self.plot_widget.addItem(self.plot_item)
+
+    def __transform_range(self, values, source_range, target_range):
+        return np.interp(values, source_range, target_range)
+
+    def plot(self):
+        data = np.flip(self.data.array.T)
+        data = self.__transform_range(data, [np.min(data), np.max(data)], [0, 1])
+
+        self.plot_item.setImage(data)
 
 class PlotChoice(QtWidgets.QWidget):
     def __init__(self, app, data_buffers):
         super().__init__()
         self.setLayout(QtWidgets.QVBoxLayout())
-
 
         self.data_buffers = data_buffers
 
@@ -62,9 +115,18 @@ class PlotChoice(QtWidgets.QWidget):
             widget = self.widget_map.pop(tup)
             self.layout().removeWidget(widget)
         else:
-            widget = RealtimePlot(self.data_buffers[tup[0]][tup[1]])
-            self.widget_map[tup] = widget
-            self.layout().addWidget(widget)
+            buffer = self.data_buffers[tup[0]][tup[1]]
+            
+            shape = buffer.get_slice.shape
+            if len(shape) == 1:
+                widget = RealtimePlot(buffer, tup[1])
+                self.widget_map[tup] = widget
+                self.layout().addWidget(widget)
+            else:
+                # widget = RealtimePlot4D(buffer, tup[1])
+                widget = HeatmapWidget(buffer, tup[1])
+                self.widget_map[tup] = widget
+                self.layout().addWidget(widget)
 
 class FSGuiLiveDialog(QtWidgets.QDialog):
     def __init__(self, app, parent=None):
@@ -118,7 +180,7 @@ class FSGuiLiveDialog(QtWidgets.QDialog):
 
         t4 = time.time()
 
-        print(f't1: {t1-t0:.3f}, t2: {t2-t1:.3f}, t3: {t3-t2:.3f}, t4: {t4-t3:.3f}, total: {t4-t0:.3f}')
+        # print(f't1: {t1-t0:.3f}, t2: {t2-t1:.3f}, t3: {t3-t2:.3f}, t4: {t4-t3:.3f}, total: {t4-t0:.3f}')
 
     def __update_publishers(self):
         app_reporter_map = self.app.get_reporters_map()
@@ -152,8 +214,16 @@ class FSGuiLiveDialog(QtWidgets.QDialog):
             data = sub.recv()
             while data is not None:
                 for key, value in data.items():
-                    node_data_buffers.setdefault(key, fsgui.nparray.CircularArray(3000)).place(value)
-                    self.buffered_writers.setdefault((node_id, key), fsgui.writer.BufferedHDFWriter(node_id, key, self.writer, 256)).append(value)
+                    if value is None:
+                        continue
+
+                    length = len(value) if hasattr(value, '__len__') else 1
+
+                    if length == 1:
+                        node_data_buffers.setdefault(key, fsgui.nparray.CircularArray(3000)).place(value)
+                        self.buffered_writers.setdefault((node_id, key), fsgui.writer.BufferedHDFWriter(node_id, key, self.writer, 256)).append(value)
+                    else:
+                        node_data_buffers.setdefault(key, fsgui.nparray.MultiCircularArray((length, 3000))).place(value)
                 
                 data = sub.recv(timeout=0)
 
