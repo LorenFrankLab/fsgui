@@ -59,7 +59,8 @@ class FSGuiApplication:
         }
     
     def process_items(self):
-        conns = [node.built_process[0] for node in self.added_nodes.values() if node.built_process is not None]
+        conn_dict = {node.built_process[0]: node for node in self.added_nodes.values() if node.built_process is not None}
+        conns = list(conn_dict.keys())
         ready_conns = multiprocessing.connection.wait(conns, timeout=0)
 
         for conn in ready_conns:
@@ -71,7 +72,7 @@ class FSGuiApplication:
                     e = data['data']
                     trace_string = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
                     logging.info(f'<pre>{trace_string}</pre>')
-                    logging.exception(f'{repr(e)}')
+                    logging.error(f'{repr(e)}')
                 elif data['type'] == 'log_debug':
                     logging.debug(data['data'])
                 elif data['type'] == 'log_info':
@@ -87,9 +88,9 @@ class FSGuiApplication:
             except EOFError as e:
                 # this is a good hint that the process has been taken down, so maybe forcibly unbuild the process?
                 # and possibly set error status
-                trace_string = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
-                logging.info(f'<pre>{trace_string}</pre>')
-                logging.exception(f'{repr(e)}')
+                conn_dict[conn].built_process = None
+                conn_dict[conn].build_error = "Process crashed."
+
     
     def send_message_to_process(self, node_id, message):
         if self.added_nodes[node_id].built_process is not None:
