@@ -1,6 +1,7 @@
 import fsgui.network
 import multiprocessing as mp
 import logging
+import traceback
 
 def build_process_object(setup, workload, cleanup=None):
     if cleanup is None:
@@ -43,8 +44,12 @@ class ProcessConnection:
     def critical(self, message):
         self.__send_message('log_critical', message)
     
-    def exception(self, exception):
-        self.__send_message('exception', exception)
+    def exception(self, e):
+        self.__send({
+            'type': 'exception',
+            'error': e,
+            'trace_string': ''.join(traceback.format_exception(type(e), e, e.__traceback__)),
+        })
 
     def pipe_recv(self):
         return self.conn.recv()

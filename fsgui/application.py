@@ -69,8 +69,8 @@ class FSGuiApplication:
                 assert 'type' in data
 
                 if data['type'] == 'exception':
-                    e = data['data']
-                    trace_string = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+                    e = data['error']
+                    trace_string = data['trace_string']
                     logging.info(f'<pre>{trace_string}</pre>')
                     logging.error(f'{repr(e)}')
                 elif data['type'] == 'log_debug':
