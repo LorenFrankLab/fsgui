@@ -72,7 +72,8 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
     
     def build(self, config, addr_map):
         config['mark_ndims'] = 4
-        
+        config['bin_count'] = 20
+        config['sigma'] = 1
 
         spikes_address=addr_map[config['spikes_source']]
         covariate_address=addr_map[config['covariate_source']]
@@ -80,11 +81,9 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
 
         encoder = MarkSpaceEncoder(
             mark_ndims=config['mark_ndims'],
-            covariate_histogram_bins=40,
-            weighting_algorithm=None,
-            k1=5,
-            k2=2,
-            )
+            bin_count=config['bin_count'],
+            sigma=config['sigma'],
+        )
 
 
         def compute_mark(datapoint):
@@ -122,16 +121,39 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
 
                 mark = compute_mark(samples)
 
-                result = data['filter_model'].query(mark)
+                query_result = data['filter_model'].query(mark)
+                if query_result is not None:
+                    query_histogram_normalized = query_result[0].tolist()
+                    query_histogram = query_result[1].tolist()
+                    occupancy_histogram = query_result[2].tolist()
+                    occupancy_histogram_normalized = query_result[3].tolist()
+                    distance_dist = query_result[4].tolist()
+                    weights_dist = query_result[5].tolist()
+                else:
+                    query_histogram_normalized = None
+                    query_histogram = None
+                    occupancy_histogram = None
+                    occupancy_histogram_normalized = None
+                    distance_dist = None
+                    weights_dist = None
+
                 time_query = time.time()
 
-                publisher.send(f'{result}')
+                publisher.send({
+                    'electrode_group_id': spikes_data['nTrodeId'],
+                    'histogram': query_histogram_normalized,
+                })
 
                 reporter.send({
+                    # 'spike_received_time': received_time - start_time,
+                    # 'query_time': time_query - start_time,
                     'mark': mark.tolist(),
-                    'histogram_mark': result.tolist() if result is not None else result,
-                    'spike_received_time': received_time - start_time,
-                    'query_time': time_query - start_time,
+                    'query_histogram_normalized': query_histogram_normalized,
+                    'query_histogram': query_histogram,
+                    'occupancy_histogram': occupancy_histogram,
+                    'occupancy_histogram_normalized': occupancy_histogram_normalized,
+                    'distance_dist': distance_dist,
+                    'weights_dist': weights_dist,
                 })
 
                 if data['update_model_bool']:
@@ -147,32 +169,25 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
 
         return fsgui.process.build_process_object(setup, workload)
 
-class MarkSpaceDistance:
-    pass
-
-class MarkSpaceFilter:
-    pass
-
 class MarkSpaceEncoder:
-    def __init__(self, mark_ndims, covariate_histogram_bins, weighting_algorithm, k1, k2, marks_filter=None):
-        self.k1 = k1
-        self.k2 = k2
+    def __init__(self, mark_ndims, bin_count=20, sigma=1):
+        self.bin_count = bin_count
 
-        self.observations_mark = fsgui.nparray.ArrayList(width=mark_ndims, dtype='float')
-        self.observations_covariate = fsgui.nparray.ArrayList(width=1, dtype='float')
-
-        self.histogram_bins = covariate_histogram_bins
-        self.weighting = weighting_algorithm
-        self.filter = marks_filter
+        # Gaussian kernel parameters
+        self._k1 = 1 / (np.sqrt(2*np.pi) * sigma)
+        self._k2 = -0.5 / (sigma**2)
 
         self.current_covariate_value = None
+        self.observations_mark = fsgui.nparray.ArrayList(width=mark_ndims, dtype='float')
+        self.observations_covariate = fsgui.nparray.ArrayList(width=1, dtype='float')
 
     def update_covariate(self, covariate_value):
         self.current_covariate_value = covariate_value
 
     def add_mark(self, mark_value):
-        self.observations_mark.place(mark_value)
-        self.observations_covariate.place(self.current_covariate_value)
+        if self.current_covariate_value is not None:
+            self.observations_mark.place(mark_value)
+            self.observations_covariate.place(self.current_covariate_value)
 
     def __calculate_filter(self, mark_value):
         # these are configurations
@@ -194,28 +209,45 @@ class MarkSpaceEncoder:
         ))) >= n_marks_min
 
     def __calculate_histogram(self, mark_value):
+
         squared_distance = np.sum(
             np.square(self.observations_mark.get_slice() - mark_value),
             axis=1
         )
 
-        query_weights = self.k1 * np.exp(squared_distance * self.k2)
-        query_covariates = np.squeeze(self.observations_covariate.get_slice())
+        # larger k2 is narrower kernel, smaller k2 is wider kernel
+        observation_weights = self._k1 * np.exp(self._k2 * squared_distance)
+        observation_covariates = np.nan_to_num(
+            np.squeeze(self.observations_covariate.get_slice()),
+            nan = 0
+        ).astype(np.int32)
 
-        query_histogram, query_histogram_edges = np.histogram(
-            a=query_covariates, bins=self.histogram_bins,
-            weights=query_weights, normed=False
-        )
+        query_histogram = np.bincount(
+            observation_covariates,
+            weights=observation_weights,
+            minlength=self.bin_count)
 
-        return query_histogram
+        occupancy_histogram = np.bincount(
+            observation_covariates,
+            minlength=self.bin_count)
+        occupancy_histogram_normalized = occupancy_histogram / np.sum(occupancy_histogram)
+        occupancy_histogram_normalized[occupancy_histogram_normalized == 0] = 0.0001
 
-    def __normalize_histogram(self, histogram):
-        histogram += 1e-7
-        # histogram /= self
+        query_histogram_normalized = query_histogram / occupancy_histogram_normalized
 
-        # normalize by normalized occupancy
-        # set nan to zero
-        # normalized by self histogram times bin width to become a pdf
+        # for debugging
+        distance_dist, _ = np.histogram(squared_distance, bins = 30)
+        weights_dist, _ = np.histogram(observation_weights, bins = 30)
+
+        return (
+            # this is the main value we need
+            query_histogram_normalized,
+            query_histogram,
+            occupancy_histogram,
+            occupancy_histogram_normalized,
+            distance_dist,
+            weights_dist,
+            )
 
     def query(self, m):
         if self.__calculate_filter(m):
