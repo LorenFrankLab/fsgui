@@ -3,6 +3,7 @@ import fsgui.process
 import multiprocessing as mp
 import random
 import time
+import numpy as np
 
 class BinGeneratorType(fsgui.node.NodeTypeObject):
     def __init__(self, type_id):
@@ -44,14 +45,20 @@ class BinGeneratorType(fsgui.node.NodeTypeObject):
         ]
     
     def build(self, config, param_map):
+        smoothing = 0.1
+        dt = 0.01
+
         def setup(logging, data):
-            data['value'] = 0
+            data['y_cumulative'] = 0
+            data['y_smoothed'] = 0
 
         def workload(connection, publisher, reporter, data):
-            data['value'] += random.choice([-1,0, 0, 0,1])
-            data['value'] %= 20
+            # some sort of brownian motion
+            x = np.random.normal(0, 1) * np.sqrt(dt) + 0.01
+            data['y_cumulative'] += x
+            data['y_smoothed'] = (1 - smoothing) * data['y_smoothed'] + smoothing * data['y_cumulative']
 
-            value = data['value']
+            value = int(data['y_smoothed']) % 20
 
             publisher.send(value)
             reporter.send({'bin_value': value})
