@@ -14,6 +14,7 @@ import logging
 import graphviz
 import threading
 import pyqtgraph as pg
+import pyqtgraph.opengl as gl
 import time
 import zmq
 import multiprocessing as mp
@@ -63,6 +64,28 @@ class RealtimePlot4D(qtgui.GuiZeroMarginVBoxLayoutWidget):
 
         self.plot_item.setData(pos=data.T[:,:2], size=sizes, brush=colors)
 
+class GL3DPlot(qtgui.GuiZeroMarginVBoxLayoutWidget):
+    def __init__(self, data, label):
+        super().__init__()
+        self.data = data
+
+        self.plot_widget = gl.GLViewWidget()
+        self.layout().addWidget(self.plot_widget)
+
+        self.plot_item = gl.GLScatterPlotItem()
+        self.plot_widget.addItem(self.plot_item)
+
+    def __transform_range(self, values, source_range, target_range):
+        return np.interp(values, source_range, target_range)
+
+    def plot(self):
+        data = self.data.get_slice[:, :500]
+
+        sizes = data[3,:]
+        sizes = self.__transform_range(sizes, [np.min(sizes), np.max(sizes)], [3, 15])
+
+        self.plot_item.setData(pos=data.T[:,:3], size=sizes)
+
 class HeatmapWidget(qtgui.GuiZeroMarginVBoxLayoutWidget):
     def __init__(self, data, label):
         super().__init__()
@@ -84,50 +107,115 @@ class HeatmapWidget(qtgui.GuiZeroMarginVBoxLayoutWidget):
 
     def plot(self):
         data = np.flip(self.data.array.T)
-        data = self.__transform_range(data, [np.min(data), np.max(data)], [0, 1])
+        data = self.__transform_range(data, [np.min(data), np.max(data)], [0, 0.75]) + 0.25
+
 
         self.plot_item.setImage(data)
+
+class DistributionPlot(qtgui.GuiZeroMarginVBoxLayoutWidget):
+    def __init__(self, data, label):
+        super().__init__()
+        self.data = data
+
+        self.graphWidget = pg.PlotWidget()
+        self.graphWidget.setLabel('left', label)
+        self.layout().addWidget(self.graphWidget)
+
+        self.plot_item = pg.PlotDataItem()
+        self.graphWidget.addItem(self.plot_item)
+
+        self.plot_item_ema = pg.PlotDataItem()
+        self.plot_item_ema.setPen(pg.mkPen('r'))
+        self.graphWidget.addItem(self.plot_item_ema)
+
+    def plot(self):
+        last_point = self.data.get_slice.T[0,:]
+        self.plot_item.setData(last_point)
+
+        # we want to plot the EMA smoothed
+        alpha = 0.5
+        n = 5
+        weights = alpha**np.arange(n)
+        weights = weights / np.sum(weights)
+
+        ema = np.squeeze(np.dot(self.data.get_slice[:,:n], weights[:, np.newaxis]))
+        self.plot_item_ema.setData(ema)
+
+class PlotChooser(qtgui.GuiZeroMarginVBoxLayoutWidget):
+    def __init__(self, key, buffer):
+        super().__init__()
+        self.key = key
+        self.buffer = buffer
+
+        self.widget = None
+
+        buttons_layout = QtWidgets.QHBoxLayout()
+        buttons_layout.addWidget(QtWidgets.QLabel(f'Graph: {key}'))
+        self.layout().addLayout(buttons_layout)
+
+        def add_button(plot_type):
+            button = QtWidgets.QPushButton(f'Plot {plot_type}')
+            # button = QtWidgets.QLabel(f'Plot {plot_type}')
+            button.clicked.connect(lambda x: functools.partial(self.__handle_plot, plot_type)())
+            buttons_layout.addWidget(button)
+
+        shape = buffer.get_slice.shape
+        if len(shape) == 1:
+            add_button('single_dim')
+        else:
+            add_button('heatmap')
+            add_button('4d')
+            add_button('4d gl 3d')
+            add_button('dist')
+        add_button('hide')
+
+    def __handle_plot(self, plot_type):
+        if self.widget is not None:
+            self.layout().removeWidget(self.widget)
+            self.widget = None
+    
+        if plot_type == 'hide':
+            self.widget = None
+        elif plot_type == 'single_dim':
+            self.widget = RealtimePlot(self.buffer, self.key)
+        elif plot_type == 'heatmap':
+            self.widget = HeatmapWidget(self.buffer, self.key)
+        elif plot_type == '4d':
+            self.widget = RealtimePlot4D(self.buffer, self.key)
+        elif plot_type == '4d gl 3d':
+            self.widget = GL3DPlot(self.buffer, self.key)
+        elif plot_type == 'dist':
+            self.widget = DistributionPlot(self.buffer, self.key)
+        else:
+            raise ValueError(f'unknown plot type: {plot_type}')
+
+        if self.widget is not None:
+            self.layout().addWidget(self.widget)
+    
+    def plot(self):
+        if self.widget is not None:
+            self.widget.plot()
 
 class PlotChoice(QtWidgets.QWidget):
     def __init__(self, app, data_buffers):
         super().__init__()
         self.setLayout(QtWidgets.QVBoxLayout())
-
         self.data_buffers = data_buffers
-
-        self.tuple_map = {}
-        self.button_map = {}
-        self.widget_map = {}
+        self._widget_map = {}
     
     def update_publishers(self):
         buffer_tuples = {(node_id,key) for node_id in self.data_buffers.keys() for key in self.data_buffers[node_id].keys()}
-        widget_tuples = set(self.button_map.keys())
+        widget_tuples = set(self._widget_map.keys())
 
         for tup in buffer_tuples - widget_tuples:
-            # add this tup
-            widget = QtWidgets.QPushButton(f'Show/hide {tup[1]}')
-            widget.clicked.connect(functools.partial(self.__handle_button,tup))
+            widget = PlotChooser(tup[1], self.data_buffers[tup[0]][tup[1]])
+            self._widget_map[tup] = widget
             self.layout().addWidget(widget)
-            self.button_map[tup] = widget
-    
-    def __handle_button(self, tup):
-        if tup in self.widget_map:
-            widget = self.widget_map.pop(tup)
-            self.layout().removeWidget(widget)
-        else:
-            buffer = self.data_buffers[tup[0]][tup[1]]
-            
-            shape = buffer.get_slice.shape
-            if len(shape) == 1:
-                widget = RealtimePlot(buffer, tup[1])
-                self.widget_map[tup] = widget
-                self.layout().addWidget(widget)
-            else:
-                # widget = RealtimePlot4D(buffer, tup[1])
-                widget = HeatmapWidget(buffer, tup[1])
-                self.widget_map[tup] = widget
-                self.layout().addWidget(widget)
 
+    def plot_all(self):
+        for widget in self._widget_map.values():
+            widget.plot()
+    
 class FSGuiLiveDialog(QtWidgets.QDialog):
     def __init__(self, app, parent=None):
         super().__init__(parent=parent)
@@ -160,27 +248,10 @@ class FSGuiLiveDialog(QtWidgets.QDialog):
         self.writer.close()
     
     def __run_update_function(self):
-        # 20ms deadline.
-        t0 = time.time()
-
-        for widget in self.plot_choice.widget_map.values():
-            widget.plot()
-
-        t1 = time.time()
-        
+        self.plot_choice.plot_all()
         self.__update_publishers()
-
-        t2 = time.time()
-
         self.__poll_data()
-
-        t3 = time.time()
-
         self.plot_choice.update_publishers()
-
-        t4 = time.time()
-
-        # print(f't1: {t1-t0:.3f}, t2: {t2-t1:.3f}, t3: {t3-t2:.3f}, t4: {t4-t3:.3f}, total: {t4-t0:.3f}')
 
     def __update_publishers(self):
         app_reporter_map = self.app.get_reporters_map()
