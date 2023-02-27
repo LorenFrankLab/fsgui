@@ -106,8 +106,9 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
             data['poller'].register(data['covariate_sub'].sock)
             data['poller'].register(data['update_sub'].sock)
 
-            data['filter_model'] = encoder
+            data['filter_model'] = {}
             data['update_model_bool'] = False
+            data['current_covariate_value'] = None
 
         def workload(connection, publisher, reporter, data):
             start_time = time.time()
@@ -121,7 +122,7 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
 
                 mark = compute_mark(samples)
 
-                query_result = data['filter_model'].query(mark)
+                query_result = data['filter_model'].setdefault(spikes_data['nTrodeId'], MarkSpaceEncoder(mark_ndims=config['mark_ndims'], bin_count=config['bin_count'], sigma=config['sigma'])).query(mark)
                 if query_result is not None:
                     query_histogram_normalized = query_result[0].tolist()
                     query_histogram = query_result[1].tolist()
@@ -142,7 +143,7 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
                 publisher.send({
                     'electrode_group_id': spikes_data['nTrodeId'],
                     'histogram': query_histogram_normalized,
-                    'bin_id': data['filter_model'].current_covariate_value,
+                    'bin_id': data['current_covariate_value'],
                 })
 
                 reporter.send({
@@ -158,7 +159,7 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
                 })
 
                 if data['update_model_bool']:
-                    data['filter_model'].add_mark(mark)
+                    data['filter_model'].get(spikes_data['nTrodeId']).add_mark(mark)
 
             if data['update_sub'].sock in results:
                 item = data['update_sub'].recv(timeout=500)
@@ -166,7 +167,9 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
 
             if data['covariate_sub'].sock in results:
                 item = data['covariate_sub'].recv(timeout=500)
-                data['filter_model'].update_covariate(int(item))
+                for model in data['filter_model'].values():
+                    model.update_covariate(int(item))
+                data['current_covariate_value'] = int(item)
 
         return fsgui.process.build_process_object(setup, workload)
 
