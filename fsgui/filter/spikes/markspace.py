@@ -142,6 +142,7 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
                 publisher.send({
                     'electrode_group_id': spikes_data['nTrodeId'],
                     'histogram': query_histogram_normalized,
+                    'bin_id': data['filter_model'].current_covariate_value,
                 })
 
                 reporter.send({
@@ -217,10 +218,7 @@ class MarkSpaceEncoder:
 
         # larger k2 is narrower kernel, smaller k2 is wider kernel
         observation_weights = self._k1 * np.exp(self._k2 * squared_distance)
-        observation_covariates = np.nan_to_num(
-            np.squeeze(self.observations_covariate.get_slice()),
-            nan = 0
-        ).astype(np.int32)
+        observation_covariates = self.observations_covariate.get_slice().flatten().astype(np.int32)
 
         query_histogram = np.bincount(
             observation_covariates,
