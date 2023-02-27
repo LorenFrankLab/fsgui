@@ -16,8 +16,6 @@ class FSGuiNodeLiveOptions(qtgui.GuiVBoxContainer):
     def __init__(self, gui_config, enabled):
         super().__init__()
 
-        self.layout().addWidget(QtWidgets.QLabel(f'config: {gui_config}'))
-
         for item_config in gui_config:
             if item_config['type'] == 'button':
                 button = QtWidgets.QPushButton(item_config['label'])
