@@ -1,6 +1,8 @@
 import multiprocessing as mp
 import fsgui.node
 import zmq
+import time
+import numpy as np
 
 class DecoderType(fsgui.node.NodeTypeObject):
     def __init__(self, type_id):
@@ -10,19 +12,20 @@ class DecoderType(fsgui.node.NodeTypeObject):
             node_class='filter',
             name=name,
             datatype='discrete_distribution',
-            default= {
-                'type_id': type_id,
-                'instance_id': '',
-                'nickname': name,
-                'histogram_source': None,
-                'timekeeper_source': None,
-                'covariate_source': None,
-            }
+            default=None,
         )
 
     def write_template(self, config = None):
-        if config is None:
-            config = self.default()
+        config = config if config is not None else {
+            'type_id': self.type_id(),
+            'instance_id': '',
+            'nickname': self.name(),
+            'histogram_source': None,
+            'timekeeper_source': None,
+            'covariate_source': None,
+            'bin_count': 1,
+        }
+
         return [
             {
                 'name': 'type_id',
@@ -62,15 +65,38 @@ class DecoderType(fsgui.node.NodeTypeObject):
                 'default': config['covariate_source'],
                 'tooltip': 'This node provides current value of the covariate to develop a prior.',
             },
+            {
+                'label': 'Bin count',
+                'name': 'bin_count',
+                'type': 'integer',
+                'lower': 1,
+                'upper': 256,
+                'default': config['bin_count'],
+                'tooltip': 'The number of bins the covariate has. This should be the maximum bin_id + 1.'
+            },
         ]
     def build(self, config, addr_map):
         histogram_address=addr_map[config['histogram_source']]
         timekeeper_address=addr_map[config['timekeeper_source']]
         covariate_address=addr_map[config['covariate_source']]
 
+        def create_uniform_transition(n):
+            return np.ones((n, n)) / n
+        
+        def create_local_transition(n):
+            P = np.zeros((n, n))  # transition matrix
+            for i in range(n):
+                if i > 0:
+                    P[i, i-1] = 0.15  # probability of transitioning to i-1
+                P[i, i] = 0.7  # probability of staying at i
+                if i < n-1:
+                    P[i, i+1] = 0.15  # probability of transitioning to i+1
+            return np.linalg.matrix_power(P, 5) + create_uniform_transition(n) * 0.01
+
         decoder = Decoder(
-            transition_matrix=None,
-            )
+            bin_count=config['bin_count'],
+            transition_matrix = create_local_transition(config['bin_count'])
+        )
 
         def setup(reporter, data):
             data['histogram_sub'] = fsgui.network.UnidirectionalChannelReceiver(histogram_address)
@@ -84,77 +110,126 @@ class DecoderType(fsgui.node.NodeTypeObject):
 
             data['filter_model'] = decoder
 
+            data['spike_buffer'] = []
+
         def workload(connection, publisher, reporter, data):
             results = dict(data['poller'].poll(timeout=500))
 
             if data['histogram_sub'].sock in results:
-                print('have a spike')
-                item = data['histogram_sub'].recv(timeout=500)
+                item = data['histogram_sub'].recv(timeout=0)
 
                 # add things to the buffer
+                data['spike_buffer'].append(item)
 
             if data['timekeeper_sub'].sock in results:
-                item = data['timekeeper_sub'].recv(timeout=500)
+                data['timekeeper_sub'].recv(timeout=0)
+
+                t0 = time.time()
+                
+                spikes_processed = len(data['spike_buffer'])
 
                 # run a decode on the spikes in buffer
-                # result = data['filter_model'].query(buffer_spikes)
-                # publisher.send(f'{result}')
+                result = data['filter_model'].compute_posterior(data['spike_buffer'])
+
+                posterior = result[0].tolist()
+                likelihood = result[1].tolist()
+                prior = result[2].tolist()
+                transitioned_prior = result[3].tolist()
+
+                data['spike_buffer'] = []
+
+                t1 = time.time()
+
+                publisher.send(posterior)
+
+                reporter.send({
+                    'spikes_processed': spikes_processed,
+                    'processing_time': (t1-t0) * 1000,
+                    'dec_posterior': posterior,
+                    'dec_likelihood': likelihood,
+                    'dec_prior': prior,
+                    'dec_transitioned_prior': transitioned_prior,
+                    'dec_covariate': np.bincount([data['filter_model'].current_covariate_value], minlength=20).tolist() if data['filter_model'].current_covariate_value is not None else None,
+                })
 
             if data['covariate_sub'].sock in results:
-                item = data['covariate_sub'].recv(timeout=500)
+                item = data['covariate_sub'].recv(timeout=0)
                 data['filter_model'].update_covariate(int(item))
  
         return fsgui.process.build_process_object(setup, workload)
 
-class RealtimeSpikeBuffer:
-    def __init__(self, time_bin_width, time_bin_delay, size=1000):
-        self.time_bin_width
-        self.time_bin_delay
-        self.size = size
-
-        self.buffer = np.zeros(size)
-
-    def enqueue_spike(self, group, pos, timestamp):
-        self.buffer
-        pass
-
-    def dequeue_spikes_bin(self, timestamp):
-        pass        
-
-        spikes_in_bin_mask = np.logical_and(
-            self.decoded_spike_array[:, 0] >= self.decoder_timestamp - self.decoder_bin_delay*self.time_bin_size,
-            self.decoded_spike_array[:, 0] < self.decoder_timestamp - self.decoder_bin_delay*self.time_bin_size + self.time_bin_size)
-        
-        # remove duplicates based on timestamp
-
 class Decoder:
-    def __init__(self, transition_matrix):
-        self.transition_matrix = transition_matrix
+    def __init__(self, bin_count, transition_matrix):
+        self.bin_count = bin_count
 
-    def add_observation(self, group, covariate_histogram):
-        self.firing_rate[group][self.current_covariate_bin] += 1
-        pass
+        assert transition_matrix.shape == (self.bin_count, self.bin_count)
+        self.transmat = transition_matrix
 
-    def update_covariate(self, covariate_value):
-        self.current_covariate_value = covariate_value
-        
-    def __increment_bin(self):
-        pass
+        self._occupancy_array = fsgui.nparray.ArrayList(width=1)
+        self.current_covariate_value = None
 
-    def __increment_no_bin(self):
-        pass
+        # start with an uninformative prior
+        self._prior = self.__normalize(np.ones((self.bin_count,)))
 
-    def process_observations(self, observations):
-        for group, covariate_histogram in observations:
-            self.add_observation(group, covariate_histogram)
+        # maps electrode groups to histograms of where they fired
+        self._firing_rate = {}
 
-        if len(observations) == 0:
-            posterior, likelihood = self.__increment_no_bin()
+    @property
+    def occupancy(self):
+        if self._occupancy_array.get_slice().shape[0] > 0:
+            return np.bincount(
+                self._occupancy_array.get_slice().flatten().astype(np.int32),
+                minlength=self.bin_count)
         else:
-            posterior, likelihood = self.__increment_bin()
+            return np.zeros((self.bin_count,))
 
-        return posterior
+    def update_covariate(self, covariate_value, update_covariate=True):
+        if update_covariate:
+            self._occupancy_array.place(covariate_value)
+            self.current_covariate_value = covariate_value
         
-class ArmPosterior:
-    def __update_posterior_stats(self):
-        pass
+    def __normalize(self, array):
+        if np.sum(array) != 0:
+            return array / np.sum(array)
+        else:
+            return array
+
+    def compute_posterior(self, observations):
+        # update firing rates
+        for obs in observations:
+            group = obs['electrode_group_id']
+            bin_id = obs['bin_id']
+            self._firing_rate.setdefault(group, np.ones(self.bin_count,))[bin_id] += 1
+
+        # start with basic likelihood
+        likelihood = self.__normalize(np.ones((self.bin_count,)))
+        occupancy_normalized = self.__normalize(self.occupancy)
+        occupancy_normalized[occupancy_normalized == 0] = 1e-7
+
+        dt = 180 / 30000.0
+
+        # no spike contribution
+        for elec_grp_id, firing_rates in self._firing_rate.items():
+            normed_firing_rates = self.__normalize(firing_rates)
+            likelihood_no_spike = np.exp(-dt * normed_firing_rates / occupancy_normalized)
+            likelihood_no_spike[likelihood_no_spike == 0] = 1e-7
+            likelihood *= likelihood_no_spike
+            likelihood = self.__normalize(likelihood)
+        
+        # spike contribution
+        for obs in observations:
+            # at this point it would be good to replace zeros with small numbers
+            histogram = obs['histogram']
+            if histogram is not None:
+                histogram[histogram == 0] = 1e-7
+                likelihood = likelihood * histogram
+                likelihood = self.__normalize(likelihood)
+
+        transitioned_prior = (self._prior @ self.transmat)
+        posterior = likelihood * transitioned_prior
+        posterior = self.__normalize(posterior)
+
+        # posterior becomes new prior for next round
+        prior = self._prior
+        self._prior = posterior
+        return posterior, likelihood, prior, self.__normalize(transitioned_prior)
