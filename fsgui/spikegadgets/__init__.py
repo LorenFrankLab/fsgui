@@ -1,4 +1,5 @@
 from fsgui.spikegadgets.source.camera import *
+import fsgui.spikegadgets.source.binned_camera
 from fsgui.spikegadgets.source.lfp import *
 from fsgui.spikegadgets.source.spikes import *
 import fsgui.spikegadgets.source.timestamp
@@ -13,6 +14,7 @@ class SpikeGadgetsNodeProvider:
         return [
             # sources
             CameraDataType('trodes-camera-data-type', self.network_location),
+            fsgui.spikegadgets.source.binned_camera.LinearizedBinnedCameraType('trodes-linearized-binned-camera-type', self.network_location),
             LFPDataType('trodes-lfp-data-type', self.network_location),
             SpikesDataType('trodes-spike-data-type', self.network_location),
             fsgui.spikegadgets.source.timestamp.TimestampDataType('trodes-timestamp-data-type', self.network_location),
