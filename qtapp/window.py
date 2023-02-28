@@ -189,6 +189,41 @@ class FileMenu(QtWidgets.QMenu):
         (filename, _) = QtWidgets.QFileDialog().getOpenFileName(parent=self, filter='FSGui config files (*.yaml)')
         return filename
 
+class ViewMenu(QtWidgets.QMenu):
+    diagram_toggled = QtCore.pyqtSignal(object)
+    graphics_toggled = QtCore.pyqtSignal(object)
+
+    def __init__(self, parent=None):
+        super().__init__('View', parent=parent)
+
+        self.diagram_action = QtGui.QAction('Diagram', self)
+        self.diagram_action.setShortcut('Ctrl+Shift+D')
+        self.diagram_action.setCheckable(True)
+        self.diagram_action.setChecked(False)
+        self.addAction(self.diagram_action)
+        self.diagram_action.triggered.connect(self.__handle_diagram_triggered)
+
+        self.addSeparator()
+
+        self.graphics_action = QtGui.QAction('Graphics', self)
+        self.graphics_action.setShortcut('Ctrl+Shift+G')
+        self.graphics_action.setCheckable(True)
+        self.graphics_action.setChecked(False)
+        self.addAction(self.graphics_action)
+        self.graphics_action.triggered.connect(self.__handle_graphics_triggered)
+    
+    def __handle_diagram_triggered(self):
+        self.diagram_toggled.emit(self.diagram_action.isChecked())
+
+    def __handle_graphics_triggered(self):
+        self.graphics_toggled.emit(self.graphics_action.isChecked())
+    
+    def setDiagramClosed(self):
+        self.diagram_action.setChecked(False)
+
+    def setGraphicsClosed(self):
+        self.graphics_action.setChecked(False)
+
 class FSGuiWindow(QtWidgets.QMainWindow):
     def __init__(self, args, node_providers, config = fsgui.config.FileConfig('config.yaml')):
         super().__init__()
@@ -199,14 +234,23 @@ class FSGuiWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(self.container)
         self.setWindowTitle('FSGui')
 
+        self.widget = None
         self.__set_config_and_app(config)
 
-        menu = FileMenu(self)
-        self.menuBar().addMenu(menu)
-        menu.new_triggered.connect(self.__handle_new)
-        menu.open_triggered.connect(self.__handle_open)
-        menu.save_triggered.connect(self.__handle_save)
-        menu.save_as_triggered.connect(self.__handle_save_as)
+        file_menu = FileMenu(self)
+        self.menuBar().addMenu(file_menu)
+        file_menu.new_triggered.connect(self.__handle_new)
+        file_menu.open_triggered.connect(self.__handle_open)
+        file_menu.save_triggered.connect(self.__handle_save)
+        file_menu.save_as_triggered.connect(self.__handle_save_as)
+
+        self.view_menu = ViewMenu(self)
+        self.menuBar().addMenu(self.view_menu)
+        self.view_menu.diagram_toggled.connect(self.__handle_diagram_toggled)
+        self.view_menu.graphics_toggled.connect(self.__handle_graphics_toggled)
+
+        self.graph_dialog = None
+        self.live_dialog = None
    
     def __set_config_and_app(self, config):
         self._config = config
@@ -214,8 +258,14 @@ class FSGuiWindow(QtWidgets.QMainWindow):
             node_providers=self._node_providers,
             config=config.get_config()
         )
-        self.container.setWidget(
-            FSGuiWidget(self._args, self._app, parent=self))
+
+        self.widget = FSGuiWidget(self._args, self._app, parent=self)
+        self.widget.graph_update.connect(self.__handle_graph_update)
+        self.container.setWidget(self.widget)
+
+    def __handle_graph_update(self, dot):
+        if self.graph_dialog is not None:
+            self.graph_dialog.update_graph(dot)
 
     def __handle_new(self, filename):
         self.__handle_open(filename)
@@ -235,7 +285,39 @@ class FSGuiWindow(QtWidgets.QMainWindow):
         self.__handle_save()
         logging.info(f'Saved config file: {filename}')
     
+    def __handle_diagram_toggled(self, value):
+        if value:
+            graph = self.widget.get_graph() if self.widget is not None else None
+            self.graph_dialog = qtapp.component.FSGuiDependencyGraphDialog(self, graph)
+            self.graph_dialog.finished.connect(lambda: self.__handle_diagram_finished())
+            self.graph_dialog.show()
+            print(f'diagram {value}')
+        else:
+            self.graph_dialog.deleteLater()
+            self.graph_dialog = None
+
+    def __handle_diagram_finished(self):
+        self.graph_dialog.deleteLater()
+        self.graph_dialog = None
+        self.view_menu.setDiagramClosed()
+
+    def __handle_graphics_toggled(self, value):
+        if value:
+            self.live_dialog = qtapp.reporting.FSGuiLiveDialog(self._app, self)
+            self.live_dialog.finished.connect(lambda: self.__handle_graphics_finished())
+            self.live_dialog.show()
+        else:
+            self.live_dialog.deleteLater()
+            self.live_dialog = False
+
+    def __handle_graphics_finished(self):
+        self.live_dialog.deleteLater()
+        self.live_dialog = None
+        self.view_menu.setGraphicsClosed()
+    
 class FSGuiWidget(QtWidgets.QWidget):
+    graph_update = QtCore.pyqtSignal(object)
+
     def __init__(self, args, app, parent=None):
         super().__init__(parent=parent)
 
@@ -255,14 +337,6 @@ class FSGuiWidget(QtWidgets.QWidget):
         self.actions_container = qtgui.GuiContainerWidget()
         self.action_types_container = qtgui.GuiContainerWidget()
         self.config_container = qtgui.GuiContainerWidget()
-
-        self.graph_dialog = qtapp.component.FSGuiDependencyGraphDialog(self)
-        self.graph_dialog.show()
-
-        self.live_dialog = qtapp.reporting.FSGuiLiveDialog(self.app, self)
-        self.live_dialog.show()
-
-        # self.graph_container = qtgui.GuiContainerWidget(f=QtCore.Qt.WindowType.Window)
 
         self.layout().addWidget(qtapp.component.FSGuiZeroMarginTwoPane(
             qtapp.component.FSGuiNamedVerticalContainer([
@@ -316,8 +390,8 @@ class FSGuiWidget(QtWidgets.QWidget):
     
     def __del__(self):
         self.log_handler.cleanup()
-
-    def __update_graph(self):
+    
+    def get_graph(self):
         dot = graphviz.Digraph(comment='Dependency graph', engine='dot') 
         dot.attr(rankdir='RL')
 
@@ -331,9 +405,12 @@ class FSGuiWidget(QtWidgets.QWidget):
                     dot.edge(child_id, node_id, constraint='false')
 
         dot = dot.unflatten(stagger=3, fanout=True, chain=3)
- 
-        # self.graph_container.setWidget(qtapp.component.FSGuiDependencyGraphWidget(dot))
-        self.graph_dialog.update_graph(dot)
+
+        return dot
+
+    def __update_graph(self):
+        dot = self.get_graph()
+        self.graph_update.emit(dot)
 
     def __refresh_list(self):
         """
