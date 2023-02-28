@@ -47,6 +47,7 @@ class FSGuiNodeConfigWidget(qtgui.GuiVBoxContainer):
     build_node = QtCore.pyqtSignal()
     unbuild_node = QtCore.pyqtSignal()
     delete_node = QtCore.pyqtSignal()
+    duplicate_node = QtCore.pyqtSignal()
 
     def __init__(self, datatype, typename, form_config, gui_config, status, form_extra=[]):
         """
@@ -78,6 +79,10 @@ class FSGuiNodeConfigWidget(qtgui.GuiVBoxContainer):
                     'default': True,
                 },
                 'function': lambda: self.delete_node.emit(),
+            },
+            {
+                'label': 'Duplicate',
+                'function': lambda: self.duplicate_node.emit(),
             },
         ], status))
 
@@ -498,6 +503,7 @@ class FSGuiWidget(QtWidgets.QWidget):
             widget.build_node.connect(self.__handle_build_node)
             widget.unbuild_node.connect(self.__handle_unbuild_node)
             widget.delete_node.connect(self.__handle_delete_node)
+            widget.duplicate_node.connect(self.__handle_duplicate_node)
             self.config_container.setWidget(widget)
             self.selected_instance_id = instance_id
         else:
@@ -569,4 +575,9 @@ class FSGuiWidget(QtWidgets.QWidget):
             self.__log_exception(e)
         self.__refresh_list()
         self.selected_instance_id = None
+        self.__refresh_config_box()
+
+    def __handle_duplicate_node(self):
+        self.selected_instance_id = self.app.duplicate_node(self.selected_instance_id)
+        self.__refresh_list()
         self.__refresh_config_box()
