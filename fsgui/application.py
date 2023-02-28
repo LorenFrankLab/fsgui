@@ -7,6 +7,7 @@ import logging
 import multiprocessing as mp
 import multiprocessing.connection
 import traceback
+import copy
 
 class NodeObject:
     def __init__(self, type_id, instance_id, param_config):
@@ -165,6 +166,14 @@ class FSGuiApplication:
     def create_node(self, config):
         instance_id = self.uid_manager.assign()
         config['instance_id'] = instance_id
+        self.added_nodes[instance_id] = NodeObject(type_id=config['type_id'], instance_id=instance_id, param_config=config)
+        return instance_id
+
+    def duplicate_node(self, old_instance_id):
+        instance_id = self.uid_manager.assign()
+        config = copy.deepcopy(self.added_nodes[old_instance_id].param_config)
+        config['instance_id'] = instance_id
+        config['nickname'] = 'Copy of {}'.format(config['nickname'])
         self.added_nodes[instance_id] = NodeObject(type_id=config['type_id'], instance_id=instance_id, param_config=config)
         return instance_id
 
