@@ -3,7 +3,6 @@ from fsgui.filter.lfp.theta import *
 from fsgui.filter.spatial.polygon import *
 from fsgui.filter.spatial.rectangle import *
 import fsgui.filter.spatial.speed
-import fsgui.filter.spatial.binned
 import fsgui.filter.spikes.markspace
 import fsgui.filter.cluster
 import fsgui.filter.arm
@@ -18,7 +17,6 @@ class FilterProvider:
             ThetaFilterType('theta-filter-type'),
             fsgui.filter.spikes.markspace.MarkSpaceEncoderType('mark-space-encoder-type'),
             fsgui.filter.cluster.DecoderType('point-process-encoder-type'),
-            fsgui.filter.spatial.binned.LinearBinningFilterType('linear-binning-type'),
             fsgui.filter.arm.ArmFilterType('arm-filter-type'),
         ]
 
