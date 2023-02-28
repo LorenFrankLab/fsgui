@@ -394,6 +394,7 @@ class FSGuiWidget(QtWidgets.QWidget):
             ('node:point2d', lambda i: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('point2d'), default=i.get('default'))),
             ('node:tree', lambda i: qtapp.component.FSGuiFilterSelectionWidget(filters=get_options_datatype('bool'), default=i.get('default'))),
             ('geometry', lambda i: qtapp.component.FSGuiGeometrySelectionWidget(default=i.get('default'))),
+            ('linearization', lambda i: qtapp.component.FSGuiLinearizationSelectionWidget(default=i.get('default'))),
         ]
         return form_extra
 

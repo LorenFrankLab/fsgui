@@ -10,10 +10,14 @@ import qtgui.forms
 import fsgui.util
 import qtapp.collection
 
+import fsgui.geometry
 import shapely.geometry
 
 import matplotlib.pyplot as plt
 import matplotlib.backends.backend_qt5agg
+import numpy as np
+
+import time
 
 class FSGuiPlaceholderWidget(QtWidgets.QGroupBox):
     def __init__(self):
@@ -281,15 +285,15 @@ class FSGuiGeometrySelectionWidget(qtgui.GuiVBoxContainer):
         self.line.textChanged.connect(lambda x: self.edit_available.emit())
         self.layout().addWidget(self.line)
 
+        button = QtWidgets.QPushButton('Open geometry file')
+        button.clicked.connect(self.__handle_button)
+        self.layout().addWidget(button)
+
         self.zone_selection_widget = qtgui.GuiContainerWidget()
         self.layout().addWidget(self.zone_selection_widget)
 
         self.zone_selection = qtgui.forms.GuiFormSelectWidget(options=[{'name': default['zone_id'], 'label': 'Zone {}'.format(default['zone_id'])}], default=default['zone_id'])
         self.zone_selection_widget.setWidget(self.zone_selection)
-
-        button = QtWidgets.QPushButton('Open geometry file')
-        button.clicked.connect(self.__handle_button)
-        self.layout().addWidget(button)
 
         self.content = qtgui.GuiContainerWidget()
         self.layout().addWidget(self.content)
@@ -346,3 +350,117 @@ class FSGuiGeometrySelectionWidget(qtgui.GuiVBoxContainer):
             'filename': self.line.text(),
             'zone_id': self.zone_selection.read_value()
         }
+
+
+
+
+class SegmentFormWidget(qtgui.GuiZeroMarginVBoxLayoutWidget):
+    edit_available = QtCore.pyqtSignal()
+
+    def __init__(self, label, default=(0,0)):
+        super().__init__()
+
+        self.layout().addWidget(QtWidgets.QLabel(f'<b>Segment: {label}</b>'))
+
+        self._form = qtgui.forms.GuiForm([
+            {
+                'type': 'integer',
+                'name': 'start',
+                'lower': 0,
+                'upper': 10000,
+                'label': 'Starting bin (inclusive)',
+                'default': default[0]
+            },
+            {
+                'type': 'integer',
+                'name': 'end',
+                'lower': 0,
+                'upper': 10000,
+                'label': 'Ending bin (inclusive)',
+                'default': default[1]
+            },
+        ])
+        self._form.edit_available.connect(lambda: self.edit_available.emit())
+
+        self.layout().addWidget(self._form)
+
+    def read_value(self):
+        val = self._form.read_value()
+        return (val['start'],val['end'])
+
+class FSGuiLinearizationSelectionWidget(qtgui.GuiVBoxContainer):
+    """
+    """
+    
+    edit_available = QtCore.pyqtSignal()
+
+    def __init__(self, default = None):
+        super().__init__()
+
+        self.state = default if default is not None else {'filename': '', 'segments': []}
+
+        self.line = QtWidgets.QLineEdit(self.state['filename'])
+        self.line.setReadOnly(True)
+        self.layout().addWidget(self.line)
+
+        button = QtWidgets.QPushButton('Open linearization file')
+        button.clicked.connect(self.__handle_button)
+        self.layout().addWidget(button)
+
+        self.segment_specification_widget = qtgui.GuiContainerWidget()
+        self.layout().addWidget(self.segment_specification_widget)
+        self.segment_widgets = []
+        for segment_id, segment in enumerate(self.state['segments']):
+            widget = SegmentFormWidget(segment_id, default=segment)
+            widget.edit_available.connect(lambda: self.edit_available.emit())
+            self.segment_widgets.append(widget)
+        self.segment_specification_widget.setWidget(qtgui.GuiVBoxContainer(self.segment_widgets))
+
+        self.plot_content = qtgui.GuiContainerWidget()
+        self.layout().addWidget(self.plot_content)
+
+        self.__file_updated()
+
+    def __handle_button(self):
+        (filename, _) = QtWidgets.QFileDialog().getOpenFileName(parent=self, filter='Geometry files (*.trackgeometry)')
+        self.state['filename'] = filename
+        self.__file_updated()
+        self.edit_available.emit()
+
+    def __file_updated(self):
+        try:
+            linearization_file = fsgui.geometry.TrackGeometryLinearizationFile(self.state['filename'])
+            self.line.setText(self.state['filename'])
+            self.__plot_linearization(linearization_file.linearization)
+
+            self.segment_widgets.clear()
+            for segment_id, _ in enumerate(linearization_file.linearization):
+                if segment_id < len(self.state['segments']):
+                    default = self.state['segments'][segment_id]
+                else:
+                    default = (0,0)
+                widget = SegmentFormWidget(segment_id, default)
+                widget.edit_available.connect(lambda: self.edit_available.emit())
+                self.segment_widgets.append(widget)
+
+            self.segment_specification_widget.setWidget(qtgui.GuiVBoxContainer(self.segment_widgets))
+
+        except FileNotFoundError as e:
+            self.plot_content.setWidget(QtWidgets.QLabel(f'FileNotFound: {time.ctime()}'))
+    
+    def __plot_linearization(self, linearization):
+        def plot_function(ax):
+            ax.invert_yaxis()
+            for segment_id, line in enumerate(linearization):
+                x1, y1 = line['start']
+                x2, y2 = line['end']
+                ax.arrow(x1, y1, x2-x1, y2-y1, length_includes_head=True, head_width=30)
+                ax.annotate(f'{segment_id}', (np.mean([x1,x2]), np.mean([y1,y2])))
+        self.plot_content.setWidget(PlotWidget(plot_function))
+
+    def read_value(self):
+        value = {
+            'filename': self.line.text(),
+            'segments': [widget.read_value() for widget in self.segment_widgets]
+        }
+        return value
