@@ -86,16 +86,14 @@ class DecoderType(fsgui.node.NodeTypeObject):
         def create_local_transition(n):
             P = np.zeros((n, n))  # transition matrix
             for i in range(n):
-                if i > 0:
-                    P[i, i-1] = 0.15  # probability of transitioning to i-1
+                P[i, (i-1)%n] = 0.15  # probability of transitioning to i-1
                 P[i, i] = 0.7  # probability of staying at i
-                if i < n-1:
-                    P[i, i+1] = 0.15  # probability of transitioning to i+1
+                P[i, (i+1)%n] = 0.15  # probability of transitioning to i+1
             return np.linalg.matrix_power(P, 5) + create_uniform_transition(n) * 0.01
 
         decoder = Decoder(
             bin_count=config['bin_count'],
-            transition_matrix = create_local_transition(config['bin_count'])
+            transition_matrix = create_uniform_transition(config['bin_count'])
         )
 
         def setup(reporter, data):
