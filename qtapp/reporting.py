@@ -202,6 +202,18 @@ class PlotChoice(QtWidgets.QWidget):
         self.setLayout(QtWidgets.QVBoxLayout())
         self.data_buffers = data_buffers
         self._widget_map = {}
+        self.is_frozen = False
+
+        freeze_button = QtWidgets.QPushButton(f'Freeze')
+        freeze_button.clicked.connect(functools.partial(self.__handle_set_freeze, True))
+
+        unfreeze_button = QtWidgets.QPushButton(f'Unfreeze')
+        unfreeze_button.clicked.connect(functools.partial(self.__handle_set_freeze, False))
+
+        self.layout().addWidget(qtgui.GuiHBoxContainer([freeze_button, unfreeze_button]))
+
+    def __handle_set_freeze(self, freeze_value):
+        self.is_frozen = freeze_value
     
     def update_publishers(self):
         buffer_tuples = {(node_id,key) for node_id in self.data_buffers.keys() for key in self.data_buffers[node_id].keys()}
@@ -213,8 +225,9 @@ class PlotChoice(QtWidgets.QWidget):
             self.layout().addWidget(widget)
 
     def plot_all(self):
-        for widget in self._widget_map.values():
-            widget.plot()
+        if not self.is_frozen:
+            for widget in self._widget_map.values():
+                widget.plot()
     
 class FSGuiLiveDialog(QtWidgets.QDialog):
     def __init__(self, app, parent=None):
