@@ -1,48 +1,67 @@
-class TrackGeometry:
-    class Zone:
-        def __init__(self, zone_id, polygon):
-            self.zone_id = zone_id
-            self.polygon = polygon
+class TrackGeometryLinearizationFile:
+    def __init__(self, filename):
+        self.filename = filename
+        remaining_lines = self.__read_lines(filename)
 
-        def __repr__(self):
-            return f'(Zone {self.zone_id}: {self.polygon})'
+        self.linearization, remaining_lines = self.__parse_lines(remaining_lines)
 
-    class Polygon:
-        def __init__(self, nodes):
-            self.nodes = nodes
+    def __read_lines(self, filename):
+        with open(filename, 'rb') as f:
+            return f.readlines()
 
-        def __repr__(self):
-            return f'(Polygon{self.nodes})'
+    def __parse_lines(self, lines):
+        index = 0 
 
-    def __init__(self, linearization, rangeline, zones, inclusion, exclusions):
-        self.linearization = linearization
-        self.rangeline = rangeline
-        self.zones = zones
-        self.inclusion = inclusion
-        self.exclusions = exclusions
-    
-    @property
-    def get_linearization(self):
-        return self.linearization
+        line = lines[index].strip()
+        if line != b'<Linearization Object> 1':
+            raise ValueError(f'Expected linearization object tag, got: {line}')
+        index += 1
+        # skip that binary blob
+        index += 1
 
-    @property
-    def get_rangeline(self):
-        return self.rangeline
+        line = lines[index].strip()
+        if line != b'<Linear geometry human readable> 1':
+            raise ValueError(f'Expected linear geometry human readable tag, got: {line}')
 
-    @property
-    def get_zones(self):
-        return self.zones
+        index += 1
+        line = lines[index].strip()
+        if line != b'<Start settings>':
+            raise ValueError(f'Expected start settings tag, got: {line}')
 
-    @property
-    def get_inclusion_zone(self):
-        return self.inclusion
+        index += 1
+        line = lines[index].strip()
+        if line != b'Description: Linear geometry':
+            raise ValueError(f'Expected description line, got: {line}')
 
-    @property
-    def get_exclusion_zone(self):
-        return self.exclusions
+        index += 1
+        line = lines[index].strip()
 
-    def __repr__(self):
-        return f'(Geometry (Inclusion: {self.inclusion}))'
+        results = []
+
+        while line == b'<line settings>' and index + 3 < len(lines):
+            line_x = lines[index+1].strip()
+            line_y = lines[index+2].strip()
+
+            if b'nodes_x' not in line_x:
+                raise ValueError(f'Expected nodes_x, got: {line_x}')
+            if b'nodes_y' not in line_y:
+                raise ValueError(f'Expected nodes_y, got: {line_y}')
+        
+            start_x, end_x = map(int, line_x.split()[1:])
+            start_y, end_y = map(int, line_y.split()[1:])
+            results.append({
+                'start': (start_x, start_y),
+                'end': (end_x, end_y)
+            })
+
+            index += 3
+            line = lines[index].strip()
+
+        if line != b'<End settings>':
+            raise ValueError(f'Expected end settings, got: {line}')
+        index += 1
+
+        return results, lines[index:]
 
 class TrackGeometryFileReader:
     class BufferedReader:
