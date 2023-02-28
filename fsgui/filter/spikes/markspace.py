@@ -141,6 +141,7 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
                 time_query = time.time()
 
                 publisher.send({
+                    'timestamp': spikes_data['localTimestamp'],
                     'electrode_group_id': spikes_data['nTrodeId'],
                     'histogram': query_histogram_normalized,
                     'bin_id': data['current_covariate_value'],
