@@ -3,35 +3,30 @@ import fsgui.process
 import fsgui.node
 import fsgui.spikegadgets.trodesnetwork as trodesnetwork
 import fsgui.spikegadgets.action.shortcut
+import fsgui.spikegadgets.action
+import fsgui.spikegadgets.action
 import functools
 import operator
 import time
 
-class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
+class SimpleDigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
     def __init__(self, type_id, network_location):
+        name='Simple digital pulsetrain'
         super().__init__(
             type_id=type_id,
             node_class='action',
-            name='Digital Pulsetrain',
+            name=name,
             datatype=None,
             default= {
                 'type_id': type_id,
                 'instance_id': '',
-                'nickname': 'Digital Pulsetrain',
+                'nickname': name,
                 'filter_id': None,
-                'pulseLength': 1,
-                'nPulses': 1,
-                'preDelay': 0,
+                'pulseLength': 20,
+                'nPulses': 10,
                 'sequencePeriod': 100,
-                'sequenceFrequency': 10,
-                'autoSettle': True,
-                'nOutputTrains': 1,
-                'trainInterval': 1000,
                 'primaryBit': 1,
-                'biphasic': False,
-                'secondaryBit': 1,
-                'lockout_time': 0,
-                'functNum': 0,
+                'functNum': 20,
             }
         )
 
@@ -95,16 +90,6 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                 'tooltip': 'Number of pulses in pulse sequence.'
             },
             {
-                'label': 'Pre Delay',
-                'name': 'preDelay',
-                'type': 'integer',
-                'lower': 0,
-                'upper': 1000,
-                'default': config['preDelay'],
-                'units': 'ms',
-                'tooltip': 'Time before first pulse',
-            },
-            {
                 'label': 'Period',
                 'name': 'sequencePeriod',
                 'type': 'integer',
@@ -116,26 +101,6 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                 'tooltip': 'Period of pulses in pulse sequence.',
             },
             {
-                'label': 'Number of output trains',
-                'name': 'nOutputTrains',
-                'type': 'integer',
-                'lower': 0,
-                'upper': 200,
-                'default': config['nOutputTrains'],
-                'tooltip': 'Number of output sequences to trigger before returning; Set to 0 for continuous trains',
-                'special': 'Inf.',
-            },
-            {
-                'label': 'Inter-train Interval',
-                'name': 'trainInterval',
-                'type': 'integer',
-                'lower': 100,
-                'upper': 60000,
-                'default': config['trainInterval'],
-                'units': 'ms',
-                'tooltip': 'Time in milliseconds from the onset of one pulse/pulse sequence to the onset of the next.',
-            },
-            {
                 'label': 'Primary pin',
                 'name': 'primaryBit',
                 'type': 'integer',
@@ -144,15 +109,6 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                 'default': config['primaryBit'],
                 'tooltip': 'Output pin (range 1 - 64) to stimulate. For biphasic triggering, this is the first pin '
                            'triggered.', 
-            },
-            {
-                'label': 'Lockout time',
-                'name': 'lockout_time',
-                'type': 'integer',
-                'lower': 0,
-                'upper': 100000,
-                'default': config['lockout_time'],
-                'tooltip': 'Time in milliseconds to wait before triggering again.',
             },
             {
                 'label': 'Function number',
@@ -166,15 +122,17 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
         ]
     
     def build(self, config, address_map):
+        train_length = config['nPulses'] * config['sequencePeriod']
+
         # send the script
         consumer = trodesnetwork.ServiceConsumer('statescript.service', server_address = f'{self.network_location.address}:{self.network_location.port}')
         consumer.request({
             'command': fsgui.spikegadgets.action.generate_statescript(
                 function_num=config['functNum'],
-                pre_delay=config['preDelay'],
+                pre_delay=0,
                 n_pulses=config['nPulses'],
-                n_trains=config['nOutputTrains'],
-                train_interval=config['trainInterval'],
+                n_trains=1,
+                train_interval=train_length,
                 sequence_period=config['sequencePeriod'],
                 primary_stim_pin=config['primaryBit'],
                 pulse_length=config['pulseLength']
@@ -185,7 +143,7 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
             sub_addresses=address_map,
             filter_tree=config['filter_id'],
             network_location=self.network_location,
-            lockout_time=config['lockout_time'],
+            lockout_time=train_length,
             on_funct_num=config['functNum'],
             off_funct_num=config['functNum'] + 1,
         )
