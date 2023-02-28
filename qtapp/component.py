@@ -62,7 +62,7 @@ class PlotWidget(qtgui.GuiZeroMarginVBoxLayoutWidget):
         plt.close(self._fig)
 
 class FSGuiDependencyGraphDialog(QtWidgets.QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, graph=None):
         super().__init__(parent)
         self.setLayout(QtWidgets.QVBoxLayout())
         self.layout().setContentsMargins(0,0,0,0)
@@ -71,6 +71,9 @@ class FSGuiDependencyGraphDialog(QtWidgets.QDialog):
 
         self.graph_container = qtgui.GuiContainerWidget()
         self.layout().addWidget(self.graph_container)
+
+        if graph:
+            self.update_graph(graph)
     
     def update_graph(self, graphviz_graph):
         self.graph_container.setWidget(qtapp.component.FSGuiDependencyGraphWidget(graphviz_graph))
