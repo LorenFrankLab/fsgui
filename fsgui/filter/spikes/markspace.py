@@ -23,6 +23,9 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
                 'spikes_source': None,
                 'covariate_source': None,
                 'update_signal_source': None,
+                'mark_ndims': 4,
+                'bin_count': 1,
+                'sigma': 1,
             }
         )
 
@@ -68,13 +71,33 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
                 'default': config['update_signal_source'],
                 'tooltip': 'This node provides a signal of whether or not to update the model.',
             },
+            {
+                'label': 'Mark dimensions',
+                'name': 'mark_ndims',
+                'type': 'integer',
+                'lower': 1,
+                'upper': 256,
+                'default': config['mark_ndims'],
+            },
+            {
+                'label': 'Bin count',
+                'name': 'bin_count',
+                'type': 'integer',
+                'lower': 1,
+                'upper': 256,
+                'default': config['bin_count'],
+                'tooltip': 'The number of bins the covariate has. This should be the maximum bin_id + 1.'
+            },
+            {
+                'label': 'Sigma',
+                'name': 'sigma',
+                'type': 'double',
+                'default': config['sigma'],
+                'tooltip': 'Sigma controls the width of the kernel; a larger sigma is a wider kernel'
+            },
         ]
     
     def build(self, config, addr_map):
-        config['mark_ndims'] = 4
-        config['bin_count'] = 20
-        config['sigma'] = 1
-
         spikes_address=addr_map[config['spikes_source']]
         covariate_address=addr_map[config['covariate_source']]
         update_address=addr_map[config['update_signal_source']]
