@@ -343,7 +343,7 @@ class FSGuiWidget(QtWidgets.QWidget):
         self.action_types_container = qtgui.GuiContainerWidget()
         self.config_container = qtgui.GuiContainerWidget()
 
-        self.layout().addWidget(qtapp.component.FSGuiZeroMarginTwoPane(
+        self.layout().addWidget(qtapp.component.FSGuiPanelSplitter(
             qtapp.component.FSGuiNamedVerticalContainer([
                 ('<h2>Sources</h2>', qtgui.GuiHBoxContainer([
                     qtapp.component.FSGuiNamedVerticalContainer([('Edit source', self.sources_container)]),
@@ -360,7 +360,6 @@ class FSGuiWidget(QtWidgets.QWidget):
             ]),
             qtgui.GuiVBoxContainer([
                 self.config_container,
-                # self.graph_container,
             ]),
         ))
 
