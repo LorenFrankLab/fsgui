@@ -42,6 +42,25 @@ class FSGuiZeroMarginTwoPane(qtgui.GuiRightPaneGrid):
         super().__init__(left, right)
         self.layout().setContentsMargins(0,0,0,0)
 
+class FSGuiPanelSplitter(QtWidgets.QWidget):
+    def __init__(self, left, right):
+        """
+        left: a QWidget that goes on the left
+        right: a QWidget that goes on the right
+        """
+        super().__init__()
+
+        self.setLayout(QtWidgets.QHBoxLayout())
+        self.layout().setContentsMargins(0,0,0,0)
+
+        splitter = QtWidgets.QSplitter()
+        splitter.setChildrenCollapsible(False)
+        splitter.setHandleWidth(10)
+        splitter.setStyleSheet("QSplitter::handle { background-color: darkGray; margin-left: 3px; margin-right: 3px; }")
+        self.layout().addWidget(splitter)
+
+        splitter.addWidget(left)
+        splitter.addWidget(right)
 
 class PlotWidget(qtgui.GuiZeroMarginVBoxLayoutWidget):
     def __init__(self, plot_function):
