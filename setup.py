@@ -16,5 +16,6 @@ setuptools.setup(
         'graphviz',
         'pyqtgraph',
         'pyopengl',
+        'scipy',
     ],
 )

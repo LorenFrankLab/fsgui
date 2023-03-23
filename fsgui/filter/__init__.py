@@ -1,5 +1,6 @@
 from fsgui.filter.lfp.ripple import *
 from fsgui.filter.lfp.theta import *
+from fsgui.filter.lfp.theta_hilbert import *
 from fsgui.filter.spatial.polygon import *
 from fsgui.filter.spatial.rectangle import *
 import fsgui.filter.spatial.speed
@@ -15,6 +16,7 @@ class FilterProvider:
             fsgui.filter.spatial.speed.SpeedFilterType('speed-filter-type'),
             RippleFilterType('ripple-filter-type'),
             ThetaFilterType('theta-filter-type'),
+            fsgui.filter.lfp.theta_hilbert.ThetaPhaseHilbertFilterType('theta-phase-hilbert-filter-type'),
             fsgui.filter.spikes.markspace.MarkSpaceEncoderType('mark-space-encoder-type'),
             fsgui.filter.cluster.DecoderType('point-process-encoder-type'),
             fsgui.filter.arm.ArmFilterType('arm-filter-type'),
