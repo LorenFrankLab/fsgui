@@ -17,5 +17,6 @@ setuptools.setup(
         'pyqtgraph',
         'pyopengl',
         'scipy',
+        'ghostipy',
     ],
 )
