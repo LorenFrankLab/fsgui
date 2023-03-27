@@ -341,7 +341,8 @@ class FSGuiWidget(QtWidgets.QWidget):
         self.filter_types_container = qtgui.GuiContainerWidget()
         self.actions_container = qtgui.GuiContainerWidget()
         self.action_types_container = qtgui.GuiContainerWidget()
-        self.config_container = qtgui.GuiContainerWidget()
+        self.config_container = QtWidgets.QScrollArea()
+        self.config_container.setWidgetResizable(True)
 
         self.layout().addWidget(qtapp.component.FSGuiPanelSplitter(
             qtapp.component.FSGuiNamedVerticalContainer([
