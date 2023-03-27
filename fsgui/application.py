@@ -202,6 +202,8 @@ class FSGuiApplication:
         children_ids = self.get_node_children_ids(instance_id)
 
         for child_id in children_ids:
+            if child_id is None:
+                raise ValueError(f'While building "{node.nickname}": one of the children instance_ids has a value of {None}. Please make sure node is properly configured.')
             self.__build_recursive(child_id)
 
         addr_map = self.__get_child_address_map(instance_id)
