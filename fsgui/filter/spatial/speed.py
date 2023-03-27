@@ -2,8 +2,7 @@ import multiprocessing as mp
 import numpy as np
 import fsgui.process
 import fsgui.node
-import json
-import shapely
+
 
 class SpeedFilterType(fsgui.node.NodeTypeObject):
     def __init__(self, type_id):
@@ -12,21 +11,24 @@ class SpeedFilterType(fsgui.node.NodeTypeObject):
             node_class='filter',
             name='Speed filter',
             datatype='bool',
-            default= {
-                'type_id': type_id,
-                'instance_id': '',
-                'nickname': 'Speed filter',
-                'source_id': None,
-                'cmPerPix': 0.20,
-                'minSpeed': 0,
-                'maxSpeed': 500,
-                'lockoutTime': 7500,
-            }
+            default=None
         )
 
     def write_template(self, config = None):
-        if config is None:
-            config = self.default()
+        config = config if config is not None else {
+            'type_id': self.type_id(),
+            'instance_id': '',
+            'nickname': self.name(),
+            'source_id': None,
+            'smooth_x': True,
+            'smooth_y': True,
+            'smooth_speed': False,
+            'position_sampling_rate': 30,
+            'scale_factor': 0.222,
+            'threshold': 10.0,
+            'threshold_above': False,
+        }
+ 
         return [
             {
                 'name': 'type_id',
@@ -53,128 +55,163 @@ class SpeedFilterType(fsgui.node.NodeTypeObject):
                 'tooltip': 'Source to receive spatial data from',
             },
             {
-                'label': 'Centimeters per pixel',
-                'name': 'cmPerPix',
-                'type': 'double',
-                'lower': 0,
-                'upper': 10,
-                'default': config['cmPerPix'],
-                'decimals': 2,
-                'units': 'cm/pixel',
+                'label': 'Smooth x',
+                'name': 'smooth_x',
+                'type': 'boolean',
+                'default': config['smooth_x'],
+                'tooltip': 'Whether or not to smooth the x-positions using a filter.',
             },
             {
-                'label': 'Minimum speed',
-                'name': 'minSpeed',
-                'type': 'double',
-                'default': config['minSpeed'],
-                'lower': -1,
-                'upper': 200.0,
-                'decimals': 2,
-                'units': 'cm/sec'
+                'label': 'Smooth y',
+                'name': 'smooth_y',
+                'type': 'boolean',
+                'default': config['smooth_y'],
+                'tooltip': 'Whether or not to smooth the y-positions using a filter.',
             },
             {
-                'label': 'Maximum speed',
-                'name': 'maxSpeed',
+                'label': 'Smooth speed',
+                'name': 'smooth_speed',
+                'type': 'boolean',
+                'default': config['smooth_speed'],
+                'tooltip': 'Whether or not to smooth the speed value using a filter.',
+            },
+            {
+                'label': 'Sample rate',
+                'name': 'position_sampling_rate',
+                'type': 'integer',
+                'lower': 0,
+                'upper': 100000,
+                'units': 'Hz',
+                'default': config['position_sampling_rate'],
+                'tooltip': 'Whether or not to smooth the speed value using a filter.',
+            },
+            {
+                'label': 'Scale factor',
+                'name': 'scale_factor',
                 'type': 'double',
                 'lower': 0,
-                'upper': 1000,
-                'default': config['maxSpeed'],
+                'upper': 1,
+                'default': config['scale_factor'],
+                'tooltip': 'The factor used to scale the speed into the units of the threshold.',
+            },
+            {
+                'label': 'Threshold',
+                'name': 'threshold',
+                'type': 'double',
+                'lower': 0,
+                'upper': 100000000000,
                 'decimals': 2,
-                'units': 'cm/sec'
+                'default': config['threshold'],
+                'tooltip': 'The speed threshold required to trigger the filter.',
+            },
+            {
+                'label': 'Threshold above',
+                'name': 'threshold_above',
+                'type': 'boolean',
+                'default': config['threshold_above'],
+                'tooltip': 'True indicates the speed must be above the threshold to trigger. False indicates speed must be below threshold to trigger.',
             },
         ]
 
     def build(self, config, addr_map):
         pub_address = addr_map[config['source_id']]
 
+        # weighting recent estimates more
+        smoothing_filter = [0.31, 0.29, 0.25, 0.15]
+
         def setup(reporter, data):
             data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
-            data['filter_model'] = SpeedFilter()
+            data['filter_model'] = KinematicsEstimator(
+                scale_factor=config['scale_factor'],
+                dt=1/config['position_sampling_rate'],
+                xfilter=smoothing_filter,
+                yfilter=smoothing_filter,
+                speedfilter=smoothing_filter,
+            )
 
         def workload(connection, publisher, reporter, data):
             item = data['sub'].recv(timeout=500)
             if item is not None:
-                x, y = tuple(map(float, item.split(',')))
-                triggered = data['filter_model'].check_speed(x, y)
-                publisher.send(f'{triggered}')
+                _, _, speed = data['filter_model'].compute_kinematics(
+                    item['x'], item['y'],
+                    smooth_x=config['smooth_x'],
+                    smooth_y=config['smooth_y'],
+                    smooth_speed=config['smooth_speed'],
+                )
+
+                if config['threshold_above']:
+                    triggered = speed > config['threshold']
+                else:
+                    triggered = speed < config['threshold']
+                
+                # convert from numpy to Python bool
+                triggered = bool(triggered)
+
+                publisher.send(triggered)
 
         return fsgui.process.build_process_object(setup, workload)
 
-class SpeedFilter:
-    def __init__(self):
-        pass
+class KinematicsEstimator(object):
 
-    def check_speed(self, x, y):
-        import logging
-        logging.info(f'{x} {y}')
+    def __init__(
+        self, *, scale_factor=1, dt=1,
+        xfilter=None, yfilter=None,
+        speedfilter=None
+    ):
+        self._sf = scale_factor
+        self._dt = dt
 
-        return True
+        self._b_x = np.array(xfilter)
+        self._b_y = np.array(yfilter)
+        self._b_speed = np.array(speedfilter)
 
+        self._buf_x = np.zeros(self._b_x.shape[0])
+        self._buf_y = np.zeros(self._b_y.shape[0])
+        self._buf_speed = np.zeros(self._b_speed.shape[0])
 
-class MockFilterMathematical:
-    def __init__(self):
-        self.nspeed_filt_points = 30
-        self.speedFilterValues = [ 0.0393, 0.0392, 0.0391, 0.0389, 0.0387, 0.0385, 0.0382, 0.0379, 0.0375, 0.0371, 0.0367, 0.0362, 0.0357, 0.0352, 0.0347, 0.0341, 0.0334, 0.0328, 0.0321, 0.0315, 0.0307, 0.0300, 0.0293, 0.0285, 0.0278, 0.0270, 0.0262, 0.0254, 0.0246, 0.0238 ]
-        self.stimOn = False
-        self.stimChanged = False
-        self.lastChange = 0
-        self.xpos = 0
-        self.ypos = 0
-        self.inLockout = False
+        self._last_x = -1
+        self._last_y = -1
+        self._last_speed = -1
 
-        self.cmPerPix = None
+    def compute_kinematics(
+        self, x, y, *, smooth_x=False,
+        smooth_y=False, smooth_speed=False
+    ):
 
-    def reset_data(self):
-        self.speedFilt = [x for x in self.speedFilterValues]
-        self.ind = self.nspeed_filt_points - 1
-        self.lastx = 0
-        self.lasty = 0
-    
-    def add_point(self, xposition, yposition, timestamp):
-        currentStim = stimOn
-        animalSpeed = filterPosSpeed(xpos, ypos)
-        
-        if (timestamp - lastChange) < self.lockoutTime:
-            return stimOn
+        # very first datapoint
+        if self._last_speed == -1:
+            self._last_x = x
+            self._last_y = y
+            self._last_speed = 0
+            return x, y, 0
 
-        if animalSpeed < self.minSpeed or animalSpeed > self.maxSpeed:
-            stimOn = False
+        if smooth_x:
+            xv = self._smooth(x * self._sf, self._b_x, self._buf_x)
         else:
-            pass
-            # stimOn = (xpos >= self.lowerLeftX) and
-            #             (xpos <= self.upperRightX) and
-            #             (ypos >= self.lowerLeftY) and
-            #             (ypos <= self.upperRightY)
-        if stimOn != currentStim:
-            stimChanged = True
-            lastChange = timestamp
-        return stimOn
-    
-    def filter_pos_speed(self, x, y):
-        import math
-        i = None
-        tmpind = None
-        # make sure can't crash
-        smoothSpd = 0
+            xv = x
 
-        # Calculate instantaneous speed and adjust to cm/sec */
+        if smooth_y:
+            yv = self._smooth(y * self._sf, self._b_y, self._buf_y)
+        else:
+            yv = y
 
-        dx = x * self.cmPerPix - self.lastx
-        dy = y * self.cmPerPix - self.lasty
+        sv = np.sqrt((yv - self._last_y)**2 + (xv - self._last_x)**2) / self._dt
+        if smooth_speed:
+            sv = self._smooth(sv, self._b_speed, self._buf_speed)
 
-        # not sure why they have 30
-        speed[self.ind] = math.sqrt(dx * dx + dy * dy) * 30.0
+        # now that the speed has been estimated, the current x and y values
+        # become the most recent (last) x and y values
+        self._last_x = xv
+        self._last_y = yv
+        self._last_speed = sv
 
-        lastx = x * self.cmPerPix
-        lasty = y * self.cmPerPix
+        return xv, yv, sv
 
+    def _smooth(self, newval, coefs, buf):
 
-        # /* apply the filter to the speed points */
-        for i in range(self.nspeed_filt_points):
-            tmpind = (self.ind + i) % self.nspeed_filt_points;
-            smoothSpd = smoothSpd + speed[tmpind] * self.speedFilt[i]
-        self.ind -= 1
-        if self.ind < 0:
-            self.ind = self.nspeed_filt_points - 1
+        # mutates data!
+        buf[1:] = buf[:-1]
+        buf[0] = newval
+        rv = np.sum(coefs * buf, axis=0)
 
-        return smoothSpd
+        return rv
