@@ -478,7 +478,9 @@ class FSGuiLinearizationSelectionWidget(qtgui.GuiVBoxContainer):
                 x2, y2 = line['end']
                 ax.arrow(x1, y1, x2-x1, y2-y1, length_includes_head=True, head_width=30)
                 ax.annotate(f'{segment_id}', (np.mean([x1,x2]), np.mean([y1,y2])))
-        self.plot_content.setWidget(PlotWidget(plot_function))
+        content = PlotWidget(plot_function)
+        content.setMinimumSize(500, 500)
+        self.plot_content.setWidget(content)
 
     def read_value(self):
         value = {
