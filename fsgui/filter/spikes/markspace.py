@@ -245,6 +245,8 @@ class MarkSpaceEncoder:
 
         # larger k2 is narrower kernel, smaller k2 is wider kernel
         observation_weights = self._k1 * np.exp(self._k2 * squared_distance)
+        # necessary to remove super tiny weights because bug in numpy histograms
+        observation_weights[observation_weights < 1e-20] = 0
         observation_covariates = self.observations_covariate.get_slice().flatten().astype(np.int32)
 
         query_histogram = np.bincount(
