@@ -147,7 +147,7 @@ class DecoderType(fsgui.node.NodeTypeObject):
                     'dec_likelihood': likelihood,
                     'dec_prior': prior,
                     'dec_transitioned_prior': transitioned_prior,
-                    'dec_covariate': np.bincount([data['filter_model'].current_covariate_value], minlength=20).tolist() if data['filter_model'].current_covariate_value is not None else None,
+                    'dec_covariate': np.bincount([data['filter_model'].current_covariate_value], minlength=config['bin_count']).tolist() if data['filter_model'].current_covariate_value is not None else None,
                 })
 
             if data['covariate_sub'].sock in results:
