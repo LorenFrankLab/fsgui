@@ -62,7 +62,6 @@ class SpikesDataType(fsgui.node.NodeTypeObject):
         def workload(connection, publisher, reporter, data):
             spikes_data = data['spikes_sub'].receive(timeout=50)
             if spikes_data is not None:
-                print(spikes_data)
                 publisher.send(spikes_data)
        
         return fsgui.process.build_process_object(setup, workload)

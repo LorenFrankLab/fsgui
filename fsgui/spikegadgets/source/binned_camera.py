@@ -72,8 +72,6 @@ class LinearizedBinnedCameraType(fsgui.node.NodeTypeObject):
             data['receive_none_counter'] = 0
 
         def workload(connection, publisher, reporter, data):
-            t0 = time.time()
-
             camera_data = data['camera_sub'].receive(timeout=50)
             if camera_data is None:
                 data['receive_none_counter'] += 1
@@ -81,10 +79,6 @@ class LinearizedBinnedCameraType(fsgui.node.NodeTypeObject):
                     connection.info(f'Camera source has not received any camera data from Trodes in a while...')
             if camera_data is not None:
                 data['receive_none_counter'] = 0
-
-                bin_value = 2
-
-                t1 = time.time()
 
                 segment_id = camera_data['lineSegment']
                 segment = segment_dictionary[segment_id]
@@ -104,11 +98,6 @@ class LinearizedBinnedCameraType(fsgui.node.NodeTypeObject):
                 reporter.send({
                     'bin_value': np.bincount([bin_value], minlength=total_bins).tolist(),
                 })
-
-                t2 = time.time()
-                print(f'{t1-t0:.6f} {t2-t1:.6f}')
-
-                print(bin_value)
 
         return fsgui.process.build_process_object(setup, workload)
         
