@@ -21,9 +21,9 @@ class FSGuiNodeLiveOptions(qtgui.GuiVBoxContainer):
                 button = QtWidgets.QPushButton(item_config['label'])
                 button.setEnabled(enabled)
                 if 'pressed' in item_config:
-                    button.pressed.connect(functools.partial(self.message_node.emit,item_config['pressed']))
+                    button.pressed.connect(functools.partial(self.message_node.emit,(item_config['name'],item_config['pressed'])))
                 if 'released' in item_config:
-                    button.released.connect(functools.partial(self.message_node.emit,item_config['released']))
+                    button.released.connect(functools.partial(self.message_node.emit,(item_config['name'],item_config['released'])))
                 self.layout().addWidget(button)
             elif item_config['type'] == 'checkbox':
                 checkbox = QtWidgets.QCheckBox(item_config['label'])
@@ -34,9 +34,9 @@ class FSGuiNodeLiveOptions(qtgui.GuiVBoxContainer):
                         function()
 
                 if 'checked' in item_config:
-                    checkbox.stateChanged.connect(functools.partial(run_checked, 2, functools.partial(self.message_node.emit,item_config['checked'])))
+                    checkbox.stateChanged.connect(functools.partial(run_checked, 2, functools.partial(self.message_node.emit,(item_config['name'],item_config['checked']))))
                 if 'unchecked' in item_config:
-                    checkbox.stateChanged.connect(functools.partial(run_checked, 0, functools.partial(self.message_node.emit,item_config['unchecked'])))
+                    checkbox.stateChanged.connect(functools.partial(run_checked, 0, functools.partial(self.message_node.emit,(item_config['name'],item_config['unchecked']))))
                 self.layout().addWidget(checkbox)
             else:
                 self.layout().addWidget(QtWidgets.QLabel(f'Unknown: {item_config}'))

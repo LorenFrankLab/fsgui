@@ -145,7 +145,7 @@ def generate_statescript(function_num, pre_delay,
 
     return script
 
-def build_shortcut_command(sub_addresses, filter_tree, network_location, lockout_time, on_funct_num, off_funct_num=None):
+def build_shortcut_command(sub_addresses, filter_tree, network_location, lockout_time, on_funct_num, off_funct_num=None, abort_funct_num=None):
     def setup(reporter, data):
         # assign each
         data['sub_receivers'] = {
@@ -189,14 +189,22 @@ def build_shortcut_command(sub_addresses, filter_tree, network_location, lockout
         evaluation = evaluate_node(filter_tree, data) if filter_tree is not None else False
 
         if connection.pipe_poll(timeout = 0):
-            message_data = connection.pipe_recv()
-            if message_data == 'start':
-                data['enabled'] = True
-            elif message_data == 'stop':
-                data['enabled'] = False
-            else:
-                raise ValueError(f'message unexpected: {message_data}')
-        
+            message_tag, message_data = connection.pipe_recv()
+            if message_tag == 'enabled':
+                if message_data == 'enable':
+                    data['enabled'] = True
+                elif message_data == 'disable':
+                    data['enabled'] = False
+                else:
+                    raise ValueError(f'message unexpected: {message_data}')
+            elif message_tag == 'abort':
+                if abort_funct_num is not None:
+                    data['trodes_sender'].request([
+                        'tag',
+                        'HRSCTrig',
+                        {'fn': abort_funct_num}
+                    ])
+            
         evaluation = evaluation and data['enabled']
         
         if evaluation and (data['last_triggered'] is None or time.time() > data['last_triggered'] + lockout_time / 1000.0):

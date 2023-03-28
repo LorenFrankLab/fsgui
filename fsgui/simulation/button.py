@@ -24,6 +24,7 @@ class ButtonSourceType(fsgui.node.NodeTypeObject):
             {
                 'type': 'button',
                 'label': 'Turn on',
+                'name': 'trigger',
                 'pressed': True,
                 'released': False,
             },
@@ -59,9 +60,10 @@ class ButtonSourceType(fsgui.node.NodeTypeObject):
 
         def workload(connection, publisher, reporter, data):
             if connection.pipe_poll(timeout = 0):
-                msg_data = connection.pipe_recv()
-                data['value'] = msg_data
-                print(f'received: {msg_data}')
+                msg_tag, msg_data = connection.pipe_recv()
+                if msg_tag == 'trigger':
+                    data['value'] = msg_data
+                    print(f'received: {msg_data}')
 
             publisher.send(data['value'])
             reporter.send({'button_value': data['value']})

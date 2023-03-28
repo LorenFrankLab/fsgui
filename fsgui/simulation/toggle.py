@@ -24,6 +24,7 @@ class ToggleSourceType(fsgui.node.NodeTypeObject):
             {
                 'type': 'checkbox',
                 'label': 'enabled',
+                'name': 'enabled',
                 'checked': True,
                 'unchecked': False,
             }
@@ -59,8 +60,9 @@ class ToggleSourceType(fsgui.node.NodeTypeObject):
 
         def workload(connection, publisher, reporter, data):
             if connection.pipe_poll(timeout = 0):
-                msg_data = connection.pipe_recv()
-                data['value'] = msg_data
+                msg_tag, msg_data = connection.pipe_recv()
+                if msg_tag == 'enabled':
+                    data['value'] = msg_data
 
             publisher.send(data['value'])
             reporter.send({'toggle_value': data['value']})
