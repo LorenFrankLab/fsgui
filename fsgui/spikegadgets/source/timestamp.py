@@ -62,6 +62,6 @@ class TimestampDataType(fsgui.node.NodeTypeObject):
             timestamp_data = data['sub'].receive(timeout=50)
             if timestamp_data is not None:
                 hardware_ts = timestamp_data['localTimestamp']
-                publisher.send(f'{hardware_ts}')
+                publisher.send(hardware_ts)
         
         return fsgui.process.build_process_object(setup, workload)
