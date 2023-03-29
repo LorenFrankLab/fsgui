@@ -18,6 +18,7 @@ import matplotlib.backends.backend_qt5agg
 import numpy as np
 
 import time
+import os
 
 class FSGuiPlaceholderWidget(QtWidgets.QGroupBox):
     def __init__(self):
@@ -362,10 +363,13 @@ class FSGuiGeometrySelectionWidget(qtgui.GuiVBoxContainer):
             self.content.setWidget(QtWidgets.QLabel(f'FileNotFound: {time.ctime()}'))
 
     def __handle_button(self):
-        dialog = QtWidgets.QFileDialog()
-        dialog.setNameFilter('Geometry files (*.trackgeometry)')
-        dialog.fileSelected.connect(lambda filename: self.line.setText(f'{filename}'))
-        dialog.exec()
+        settings = QtCore.QSettings()
+        dirname = settings.value('last_dirname_trackgeometry', QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.HomeLocation))
+        (filename, _) = QtWidgets.QFileDialog().getOpenFileName(self, 'Open file', dirname, filter='Geometry files (*.trackgeometry)')
+        if filename:
+            settings.setValue('last_dirname_trackgeometry', os.path.dirname(filename))
+
+        self.line.setText(f'{filename}')
 
     def read_value(self):
         return {
@@ -444,7 +448,11 @@ class FSGuiLinearizationSelectionWidget(qtgui.GuiVBoxContainer):
         self.__file_updated()
 
     def __handle_button(self):
-        (filename, _) = QtWidgets.QFileDialog().getOpenFileName(parent=self, filter='Geometry files (*.trackgeometry)')
+        settings = QtCore.QSettings()
+        dirname = settings.value('last_dirname_trackgeometry', QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.HomeLocation))
+        (filename, _) = QtWidgets.QFileDialog().getOpenFileName(self, 'Open file', dirname, filter='Geometry files (*.trackgeometry)')
+        if filename:
+            settings.setValue('last_dirname_trackgeometry', os.path.dirname(filename))
         self.state['filename'] = filename
         self.__file_updated()
         self.edit_available.emit()

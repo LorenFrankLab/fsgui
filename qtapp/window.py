@@ -10,6 +10,7 @@ import qtapp.logging
 import traceback
 import logging
 import graphviz
+import os
 
 class FSGuiNodeLiveOptions(qtgui.GuiVBoxContainer):
     message_node = QtCore.pyqtSignal(object)
@@ -187,11 +188,19 @@ class FileMenu(QtWidgets.QMenu):
         self.save_as_action.triggered.connect(lambda: self.save_as_triggered.emit(self.__get_save_filename()))
 
     def __get_save_filename(self):
-        (filename, _) = QtWidgets.QFileDialog().getSaveFileName(parent=self, filter='FSGui config files (*.yaml)')
+        settings = QtCore.QSettings()
+        dirname = settings.value('last_dirname_yaml', QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.HomeLocation))
+        (filename, _) = QtWidgets.QFileDialog().getSaveFileName(self, 'Save file', dirname, filter='FSGui config files (*.yaml)')
+        if filename:
+            settings.setValue('last_dirname_yaml', os.path.dirname(filename))
         return filename
 
     def __get_existing_filename(self):
-        (filename, _) = QtWidgets.QFileDialog().getOpenFileName(parent=self, filter='FSGui config files (*.yaml)')
+        settings = QtCore.QSettings()
+        dirname = settings.value('last_dirname_yaml', QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.HomeLocation))
+        (filename, _) = QtWidgets.QFileDialog().getOpenFileName(self, 'Open file', dirname, filter='FSGui config files (*.yaml)')
+        if filename:
+            settings.setValue('last_dirname_yaml', os.path.dirname(filename))
         return filename
 
 class ViewMenu(QtWidgets.QMenu):
