@@ -180,9 +180,12 @@ class FSGuiApplication:
     def edit_node(self, config):
         instance_id = config['instance_id']
         node = self.added_nodes[instance_id]
+
         if node.built_process is not None:
-            raise ValueError('The node is currently built. Can not edit a built node. Please unbuild.')
-        node.param_config = config
+            # this must be from a live edit
+            pass
+        else:
+            node.param_config = config
 
         return instance_id
 

@@ -59,7 +59,9 @@ class FSGuiNodeConfigWidget(qtgui.GuiVBoxContainer):
         self.layout().addWidget(QtWidgets.QLabel(f'<h3>Configure existing node</h3>'))
         self.layout().addWidget(QtWidgets.QLabel(f'<b>datatype: {datatype}</b>'))
         self.layout().addWidget(QtWidgets.QLabel(f'<b>type: {typename}</b>'))
-        self._form = qtgui.forms.GuiForm(form_config, editable=(not status == 'built'), extra=form_extra)
+        self._form = qtgui.forms.GuiForm(form_config, editable=(not status == 'built'), extra=form_extra,
+            send_message_function=lambda varname, value: self.message_node.emit(('update', (varname, value))))
+            
         self._form.edit_available.connect(lambda x: self.edit_node.emit(x))
         self.layout().addWidget(self._form)
         self.layout().addWidget(qtapp.component.FSGuiZeroMarginButtonCommandBox([
@@ -476,16 +478,16 @@ class FSGuiWidget(QtWidgets.QWidget):
                 for node in self.app.get_nodes_datatype(datatype)]
             
         form_extra = [
-            ('node:float', lambda i: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('float'), default=i.get('default'))),
-            ('node:discrete_distribution', lambda i: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('discrete_distribution'), default=i.get('default'))),
-            ('node:bin_id', lambda i: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('bin_id'), default=i.get('default'))),
-            ('node:bool', lambda i: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('bool'), default=i.get('default'))),
-            ('node:spikes', lambda i: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('spikes'), default=i.get('default'))),
-            ('node:timestamp', lambda i: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('timestamp'), default=i.get('default'))),
-            ('node:point2d', lambda i: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('point2d'), default=i.get('default'))),
-            ('node:tree', lambda i: qtapp.component.FSGuiFilterSelectionWidget(filters=get_options_datatype('bool'), default=i.get('default'))),
-            ('geometry', lambda i: qtapp.component.FSGuiGeometrySelectionWidget(default=i.get('default'))),
-            ('linearization', lambda i: qtapp.component.FSGuiLinearizationSelectionWidget(default=i.get('default'))),
+            ('node:float', lambda i, e: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('float'), default=i.get('default'), editable=e)),
+            ('node:discrete_distribution', lambda i, e: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('discrete_distribution'), default=i.get('default'), editable=e)),
+            ('node:bin_id', lambda i, e: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('bin_id'), default=i.get('default'), editable=e)),
+            ('node:bool', lambda i, e: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('bool'), default=i.get('default'), editable=e)),
+            ('node:spikes', lambda i, e: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('spikes'), default=i.get('default'), editable=e)),
+            ('node:timestamp', lambda i, e: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('timestamp'), default=i.get('default'), editable=e)),
+            ('node:point2d', lambda i, e: qtgui.forms.GuiFormSelectWidget(options=get_options_datatype('point2d'), default=i.get('default'), editable=e)),
+            ('node:tree', lambda i, e: qtapp.component.FSGuiFilterSelectionWidget(filters=get_options_datatype('bool'), default=i.get('default'), editable=e)),
+            ('geometry', lambda i, e: qtapp.component.FSGuiGeometrySelectionWidget(default=i.get('default'), editable=e)),
+            ('linearization', lambda i, e: qtapp.component.FSGuiLinearizationSelectionWidget(default=i.get('default'), editable=e)),
         ]
         return form_extra
 

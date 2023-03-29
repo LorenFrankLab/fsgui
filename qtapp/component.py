@@ -117,16 +117,17 @@ class FSGuiRootEditor(qtgui.GuiVBoxContainer):
 
     edit_available = QtCore.pyqtSignal()
 
-    def __init__(self, options, add_handler, item_data):
+    def __init__(self, options, add_handler, item_data, editable=True):
         super().__init__()
         self._add_handler = add_handler
 
-        self.selection = qtgui.forms.GuiFormSelectWidget(options = options)
+        self.selection = qtgui.forms.GuiFormSelectWidget(options = options, editable=editable)
         self.layout().addWidget(self.selection)
         self.layout().addWidget(qtgui.GuiButtonCommandBox([
             {
                 'label': 'Set root node',
                 'function': self.__handle_add,
+                'enabled': editable,
             },
         ]))
     
@@ -136,21 +137,23 @@ class FSGuiRootEditor(qtgui.GuiVBoxContainer):
 class FSGuiGateEditor(qtgui.GuiVBoxContainer):
     """
     """
-    def __init__(self, options, add_handler, delete_handler, item_data):
+    def __init__(self, options, add_handler, delete_handler, item_data, editable=True):
         super().__init__()
         self._add_handler = add_handler
 
-        self.selection = qtgui.forms.GuiFormSelectWidget(options = options)
+        self.selection = qtgui.forms.GuiFormSelectWidget(options = options, editable=editable)
         self.layout().addWidget(self.selection)
 
         self.layout().addWidget(qtgui.GuiButtonCommandBox([
             {
                 'label': 'Add node',
                 'function': self.__handle_add,
+                'enabled': editable,
             },
             {
                 'label': 'Delete',
                 'function': delete_handler,
+                'enabled': editable,
             },
         ]))
     
@@ -161,12 +164,13 @@ class FSGuiGateEditor(qtgui.GuiVBoxContainer):
 class FSGuiFilterEditor(qtgui.GuiVBoxContainer):
     """
     """
-    def __init__(self, delete_handler, item_data):
+    def __init__(self, delete_handler, item_data, editable=True):
         super().__init__()
         self.layout().addWidget(qtgui.GuiButtonCommandBox([
             {
                 'label': 'Delete',
                 'function': delete_handler,
+                'enabled': editable,
             },
         ]))
 
@@ -176,10 +180,11 @@ class FSGuiFilterSelectionWidget(qtgui.GuiVBoxContainer):
     
     edit_available = QtCore.pyqtSignal()
 
-    def __init__(self, filters, default = None):
+    def __init__(self, filters, default = None, editable=True):
         super().__init__()
 
         self.filter_options = filters
+        self.editable = editable
 
         self.tree_container = qtgui.GuiContainerWidget()
         self.layout().addWidget(self.tree_container)
@@ -243,19 +248,22 @@ class FSGuiFilterSelectionWidget(qtgui.GuiVBoxContainer):
             self.selected_container.setWidget(FSGuiRootEditor(
                 options,
                 functools.partial(self.__handle_add, None),
-                item_data
+                item_data,
+                editable=self.editable,
             ))
         elif 'gate' == item_data['type']:
             self.selected_container.setWidget(FSGuiGateEditor(
                 options,
                 functools.partial(self.__handle_add, item_data['id']),
                 functools.partial(self.__handle_delete, item_data['id']),
-                item_data
+                item_data,
+                editable=self.editable,
             ))
         elif 'filter' == item_data['type']:
             self.selected_container.setWidget(FSGuiFilterEditor(
                 functools.partial(self.__handle_delete, item_data['id']),
-                item_data
+                item_data,
+                editable=self.editable,
             ))
         else:
             raise AssertionError(f'bad type: {item_data}')
@@ -301,21 +309,23 @@ class FSGuiGeometrySelectionWidget(qtgui.GuiVBoxContainer):
     
     edit_available = QtCore.pyqtSignal()
 
-    def __init__(self, default = {'filename': '', 'zone_id': None}):
+    def __init__(self, default = {'filename': '', 'zone_id': None}, editable=True):
         super().__init__()
 
         self.line = QtWidgets.QLineEdit(default['filename'])
+        self.line.setEnabled(editable)
         self.line.textChanged.connect(lambda x: self.edit_available.emit())
         self.layout().addWidget(self.line)
 
         button = QtWidgets.QPushButton('Open geometry file')
+        button.setEnabled(editable)
         button.clicked.connect(self.__handle_button)
         self.layout().addWidget(button)
 
         self.zone_selection_widget = qtgui.GuiContainerWidget()
         self.layout().addWidget(self.zone_selection_widget)
 
-        self.zone_selection = qtgui.forms.GuiFormSelectWidget(options=[{'name': default['zone_id'], 'label': 'Zone {}'.format(default['zone_id'])}], default=default['zone_id'])
+        self.zone_selection = qtgui.forms.GuiFormSelectWidget(options=[{'name': default['zone_id'], 'label': 'Zone {}'.format(default['zone_id'])}], default=default['zone_id'], editable=editable)
         self.zone_selection_widget.setWidget(self.zone_selection)
 
         self.content = qtgui.GuiContainerWidget()
@@ -383,7 +393,7 @@ class FSGuiGeometrySelectionWidget(qtgui.GuiVBoxContainer):
 class SegmentFormWidget(qtgui.GuiZeroMarginVBoxLayoutWidget):
     edit_available = QtCore.pyqtSignal()
 
-    def __init__(self, label, default=(0,0)):
+    def __init__(self, label, default=(0,0), editable=True):
         super().__init__()
 
         self.layout().addWidget(QtWidgets.QLabel(f'<b>Segment: {label}</b>'))
@@ -395,7 +405,8 @@ class SegmentFormWidget(qtgui.GuiZeroMarginVBoxLayoutWidget):
                 'lower': 0,
                 'upper': 10000,
                 'label': 'Starting bin (inclusive)',
-                'default': default[0]
+                'default': default[0],
+                'editable': editable,
             },
             {
                 'type': 'integer',
@@ -403,7 +414,8 @@ class SegmentFormWidget(qtgui.GuiZeroMarginVBoxLayoutWidget):
                 'lower': 0,
                 'upper': 10000,
                 'label': 'Ending bin (inclusive)',
-                'default': default[1]
+                'default': default[1],
+                'editable': editable,
             },
         ])
         self._form.edit_available.connect(lambda: self.edit_available.emit())
@@ -420,13 +432,14 @@ class FSGuiLinearizationSelectionWidget(qtgui.GuiVBoxContainer):
     
     edit_available = QtCore.pyqtSignal()
 
-    def __init__(self, default = None):
+    def __init__(self, default = None, editable=True):
         super().__init__()
 
         self.state = default if default is not None else {'filename': '', 'segments': []}
 
         self.line = QtWidgets.QLineEdit(self.state['filename'])
         self.line.setReadOnly(True)
+        self.line.setEnabled(editable)
         self.layout().addWidget(self.line)
 
         button = QtWidgets.QPushButton('Open linearization file')
@@ -437,7 +450,7 @@ class FSGuiLinearizationSelectionWidget(qtgui.GuiVBoxContainer):
         self.layout().addWidget(self.segment_specification_widget)
         self.segment_widgets = []
         for segment_id, segment in enumerate(self.state['segments']):
-            widget = SegmentFormWidget(segment_id, default=segment)
+            widget = SegmentFormWidget(segment_id, default=segment, editable=editable)
             widget.edit_available.connect(lambda: self.edit_available.emit())
             self.segment_widgets.append(widget)
         self.segment_specification_widget.setWidget(qtgui.GuiVBoxContainer(self.segment_widgets))

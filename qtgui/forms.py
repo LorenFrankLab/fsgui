@@ -1,4 +1,5 @@
 from PyQt6 import QtCore, QtWidgets
+import functools
 
 class GuiFormStringWidget(QtWidgets.QLineEdit):
     """Widget for strings
@@ -174,7 +175,7 @@ class GuiForm(QtWidgets.QWidget):
     # transmits the new data
     edit_available = QtCore.pyqtSignal(object)
 
-    def __init__(self, param_config, extra=[], editable=True):
+    def __init__(self, param_config, extra=[], editable=True, send_message_function=None):
         super().__init__()
 
         self.setLayout(QtWidgets.QFormLayout())
@@ -182,22 +183,22 @@ class GuiForm(QtWidgets.QWidget):
         self.widgets = {}
 
         widget_builders_list = [
-            ('string', lambda i: GuiFormStringWidget(default=i.get('default'),
+            ('string', lambda i, e: GuiFormStringWidget(default=i.get('default'),
                                                 tooltip=i.get('tooltip'),
-                                                editable=i.get('editable', editable))),
-            ('select', lambda i: GuiFormSelectWidget(options=i.get('options'),
+                                                editable=e)),
+            ('select', lambda i, e: GuiFormSelectWidget(options=i.get('options'),
                                                 default=i.get('default'),
                                                 tooltip=i.get('tooltip'),
-                                                editable=i.get('editable', editable))),
-            ('integer', lambda i: GuiFormIntegerWidget(default=i.get('default'),
+                                                editable=e)),
+            ('integer', lambda i, e: GuiFormIntegerWidget(default=i.get('default'),
                                                 lower=i['lower'],
                                                 upper=i['upper'],
                                                 units=i.get('units'),
                                                 special=i.get('special'),
                                                 step=i.get('step'),
                                                 tooltip=i.get('tooltip'),
-                                                editable=i.get('editable', editable))),
-            ('double', lambda i: GuiFormDoubleWidget(default=i.get('default'),
+                                                editable=e)),
+            ('double', lambda i, e: GuiFormDoubleWidget(default=i.get('default'),
                                                 lower=i.get('lower'),
                                                 upper=i.get('upper'),
                                                 decimals=i.get('decimals'),
@@ -205,12 +206,12 @@ class GuiForm(QtWidgets.QWidget):
                                                 special=i.get('special'),
                                                 step=i.get('step'),
                                                 tooltip=i.get('tooltip'),
-                                                editable=i.get('editable', editable))),
-            ('boolean', lambda i: GuiFormBooleanWidget(default=i.get('default'),
+                                                editable=e)),
+            ('boolean', lambda i, e: GuiFormBooleanWidget(default=i.get('default'),
                                                 tooltip=i.get('tooltip'),
-                                                editable=i.get('editable', editable))),
-            ('hidden', lambda i: GuiFormHiddenWidget(default=i.get('default'))),
-            ('none', lambda i: GuiFormNoneWidget())
+                                                editable=e)),
+            ('hidden', lambda i, e: GuiFormHiddenWidget(default=i.get('default'))),
+            ('none', lambda i, e: GuiFormNoneWidget())
         ]
 
         for option in extra:
@@ -220,12 +221,24 @@ class GuiForm(QtWidgets.QWidget):
             k: v for k,v in widget_builders_list
         }
 
+        def print_message(varname, widget):
+            value = widget.read_value()
+            send_message_function(varname, value)
+
         for params in param_config:
-            widget = widget_builders.get(params['type'], widget_builders['none'])(params)
+            live_editable = params.get('live_editable', False)
+            widget_editable = editable or not editable and live_editable
+
+            widget = widget_builders.get(params['type'], widget_builders['none'])(params, widget_editable)
             self.widgets[params['name']] = widget
 
             if params['type'] != 'hidden':
                 self.layout().addRow(params['label'], widget)
+
+                if not editable and params.get('live_editable'):
+                    button = QtWidgets.QPushButton('Update')
+                    button.clicked.connect(functools.partial(print_message, varname=params['name'], widget=widget))
+                    self.layout().addRow('', button)
 
             widget.edit_available.connect(lambda: self.edit_available.emit(self.read_value()))
 
