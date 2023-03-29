@@ -10,28 +10,26 @@ import itertools
 
 class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
     def __init__(self, type_id):
-        name='Mark space kernel encoder'
         super().__init__(
             type_id=type_id,
             node_class='filter',
-            name=name,
+            name='Mark space kernel encoder',
             datatype='discrete_distribution',
-            default= {
-                'type_id': type_id,
-                'instance_id': '',
-                'nickname': name,
-                'spikes_source': None,
-                'covariate_source': None,
-                'update_signal_source': None,
-                'mark_ndims': 4,
-                'bin_count': 1,
-                'sigma': 1,
-            }
         )
 
     def write_template(self, config = None):
-        if config is None:
-            config = self.default()
+        config = config if config is not None else {
+            'type_id': self.type_id(),
+            'instance_id': '',
+            'nickname': self.name(),
+            'spikes_source': None,
+            'covariate_source': None,
+            'update_signal_source': None,
+            'mark_ndims': 4,
+            'bin_count': 1,
+            'sigma': 1,
+        }
+
         return [
             {
                 'name': 'type_id',

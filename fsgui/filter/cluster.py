@@ -12,7 +12,6 @@ class DecoderType(fsgui.node.NodeTypeObject):
             node_class='filter',
             name=name,
             datatype='discrete_distribution',
-            default=None,
         )
 
     def write_template(self, config = None):

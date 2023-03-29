@@ -17,26 +17,25 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
             node_class='filter',
             name='Ripple filter (new)',
             datatype='bool',
-            default=None,
         )
 
     def write_template(self, config = None):
-        if config is None:
-            config = config if config is not None else {
-                'type_id': self.type_id(),
-                'instance_id': '',
-                'nickname': self.name(),
-                'source_id': None,
-                'bp_order': 2,
-                'bp_crit_freqs_low': 150,
-                'bp_crit_freqs_high': 250,
-                'lfp_sample_rate': 1500,
-                'env_num_taps': 15,
-                'env_band_edges_low': 50,
-                'env_band_edges_high': 55,
-                'sd_threshold': 3.5,
-                'n_above_threshold': 1,
-            }
+        config = config if config is not None else {
+            'type_id': self.type_id(),
+            'instance_id': '',
+            'nickname': self.name(),
+            'source_id': None,
+            'bp_order': 2,
+            'bp_crit_freqs_low': 150,
+            'bp_crit_freqs_high': 250,
+            'lfp_sample_rate': 1500,
+            'env_num_taps': 15,
+            'env_band_edges_low': 50,
+            'env_band_edges_high': 55,
+            'sd_threshold': 3.5,
+            'n_above_threshold': 1,
+        }
+
         return [
             {
                 'name': 'type_id',

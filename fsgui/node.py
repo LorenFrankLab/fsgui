@@ -1,5 +1,5 @@
 class NodeTypeObject:
-    def __init__(self, type_id, node_class, name, datatype, default):
+    def __init__(self, type_id, node_class, name, datatype, default = None):
         self._type_id = type_id
         self._node_class = node_class
         self._name = name

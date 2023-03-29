@@ -11,7 +11,6 @@ class SpeedFilterType(fsgui.node.NodeTypeObject):
             node_class='filter',
             name='Speed filter',
             datatype='bool',
-            default=None
         )
 
     def write_template(self, config = None):
