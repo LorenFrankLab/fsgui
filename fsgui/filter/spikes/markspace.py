@@ -90,8 +90,11 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
                 'label': 'Sigma',
                 'name': 'sigma',
                 'type': 'double',
+                'lower': 0,
+                'upper': 10000,
                 'default': config['sigma'],
-                'tooltip': 'Sigma controls the width of the kernel; a larger sigma is a wider kernel'
+                'tooltip': 'Sigma controls the width of the kernel; a larger sigma is a wider kernel',
+                'live_editable': True,
             },
         ]
     
@@ -134,6 +137,14 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
         def workload(connection, publisher, reporter, data):
             start_time = time.time()
             results = dict(data['poller'].poll(timeout=500))
+
+            if connection.pipe_poll(timeout = 0):
+                msg_tag, msg_data = connection.pipe_recv()
+                if msg_tag == 'update':
+                    msg_varname, msg_value = msg_data
+                    if msg_varname == 'sigma':
+                        for model in data['filter_model'].values():
+                            model.update_sigma(msg_value)
 
             if data['spikes_sub'].sock in results:
                 spikes_data = data['spikes_sub'].recv()
@@ -200,12 +211,15 @@ class MarkSpaceEncoder:
         self.bin_count = bin_count
 
         # Gaussian kernel parameters
-        self._k1 = 1 / (np.sqrt(2*np.pi) * sigma)
-        self._k2 = -0.5 / (sigma**2)
+        self.update_sigma(sigma)
 
         self.current_covariate_value = None
         self.observations_mark = fsgui.nparray.ArrayList(width=mark_ndims, dtype='float')
         self.observations_covariate = fsgui.nparray.ArrayList(width=1, dtype='float')
+    
+    def update_sigma(self, sigma):
+        self._k1 = 1 / (np.sqrt(2*np.pi) * sigma)
+        self._k2 = -0.5 / (sigma**2)
 
     def update_covariate(self, covariate_value):
         self.current_covariate_value = covariate_value
