@@ -141,6 +141,7 @@ def generate_statescript(function_num, pre_delay,
     script += endl
     script += f'function {stop_function_num}' + endl
     script += s2 + f'{go_var} = 0' + endl
+    script += s2 + f'portout[{primary_stim_pin}]=0' + endl
     script += 'end;' + endl
 
     return script
