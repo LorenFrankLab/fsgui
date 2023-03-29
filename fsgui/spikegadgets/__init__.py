@@ -1,10 +1,11 @@
-from fsgui.spikegadgets.source.camera import *
+import fsgui.spikegadgets.source.camera
 import fsgui.spikegadgets.source.binned_camera
-from fsgui.spikegadgets.source.lfp import *
-from fsgui.spikegadgets.source.spikes import *
+import fsgui.spikegadgets.source.lfp
+import fsgui.spikegadgets.source.spikes
 import fsgui.spikegadgets.source.timestamp
-from fsgui.spikegadgets.action.pulse import *
-from fsgui.spikegadgets.action.shortcut import *
+import fsgui.spikegadgets.action.pulse
+import fsgui.spikegadgets.action.shortcut
+import fsgui.spikegadgets.action.simple_pulse
 
 class SpikeGadgetsNodeProvider:
     def __init__(self, network_location):
@@ -13,12 +14,13 @@ class SpikeGadgetsNodeProvider:
     def get_nodes(self):
         return [
             # sources
-            CameraDataType('trodes-camera-data-type', self.network_location),
+            fsgui.spikegadgets.source.camera.CameraDataType('trodes-camera-data-type', self.network_location),
             fsgui.spikegadgets.source.binned_camera.LinearizedBinnedCameraType('trodes-linearized-binned-camera-type', self.network_location),
-            LFPDataType('trodes-lfp-data-type', self.network_location),
-            SpikesDataType('trodes-spike-data-type', self.network_location),
+            fsgui.spikegadgets.source.lfp.LFPDataType('trodes-lfp-data-type', self.network_location),
+            fsgui.spikegadgets.source.spikes.SpikesDataType('trodes-spike-data-type', self.network_location),
             fsgui.spikegadgets.source.timestamp.TimestampDataType('trodes-timestamp-data-type', self.network_location),
             # actions
-            DigitalPulseWaveActionType('trodes-digital-pulse-action-type', self.network_location),
-            StateScriptFunctionActionType('trodes-statescript-function-action-type', self.network_location),
+            fsgui.spikegadgets.action.pulse.DigitalPulseWaveActionType('trodes-digital-pulse-action-type', self.network_location),
+            fsgui.spikegadgets.action.simple_pulse.SimpleDigitalPulseWaveActionType('trodes-simple-pulse-action-type', self.network_location),
+            fsgui.spikegadgets.action.shortcut.StateScriptFunctionActionType('trodes-statescript-function-action-type', self.network_location),
         ]

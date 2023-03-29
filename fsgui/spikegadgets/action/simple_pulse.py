@@ -146,4 +146,5 @@ class SimpleDigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
             lockout_time=train_length,
             on_funct_num=config['functNum'],
             off_funct_num=config['functNum'] + 1,
+            abort_funct_num=config['functNum'] + 1,
         )
