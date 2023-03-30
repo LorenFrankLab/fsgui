@@ -135,7 +135,7 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
             data['current_covariate_value'] = None
 
         def workload(connection, publisher, reporter, data):
-            start_time = time.time()
+            t0 = time.time()
             results = dict(data['poller'].poll(timeout=500))
 
             if connection.pipe_poll(timeout = 0):
@@ -150,7 +150,7 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
                 spikes_data = data['spikes_sub'].recv()
                 # we have a spike
                 samples = np.array(spikes_data['samples'])
-                received_time = time.time()
+                t1 = time.time()
 
                 mark = compute_mark(samples)
 
@@ -170,7 +170,7 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
                     distance_dist = None
                     weights_dist = None
 
-                time_query = time.time()
+                t2 = time.time()
 
                 publisher.send({
                     'timestamp': spikes_data['localTimestamp'],
@@ -180,8 +180,8 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
                 })
 
                 reporter.send({
-                    # 'spike_received_time': received_time - start_time,
-                    # 'query_time': time_query - start_time,
+                    'me_receive_time': t1 - t0,
+                    'me_query_time': t2 - t1,
                     'me_mark': mark.tolist(),
                     'me_query_histogram': query_histogram,
                     'me_occupancy_histogram': occupancy_histogram,
