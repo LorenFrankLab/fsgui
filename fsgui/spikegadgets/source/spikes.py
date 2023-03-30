@@ -18,16 +18,15 @@ class SpikesDataType(fsgui.node.NodeTypeObject):
             node_class='source',
             name='Trodes Spikes',
             datatype='spikes',
-            default= {
-                'type_id': type_id,
-                'instance_id': '',
-                'nickname': 'Trodes Spikes',
-            }
         )
 
     def write_template(self, config = None):
-        if config is None:
-            config = self.default()
+        config = config if config is not None else {
+            'type_id': self.type_id(),
+            'instance_id': '',
+            'nickname': self.name(),
+            'voltage_scaling_factor': 0.195,
+        }
 
         return [
             {
@@ -47,6 +46,18 @@ class SpikesDataType(fsgui.node.NodeTypeObject):
                 'default': config['nickname'],
                 'tooltip': 'This is the name the source is displayed as in menus.',
             },
+            {
+                'label': 'Voltage scaling factor',
+                'name': 'voltage_scaling_factor',
+                'type': 'double',
+                'lower': 0,
+                'upper': 10000,
+                'decimals': 3,
+                'default': config['voltage_scaling_factor'],
+                'tooltip': 'This is multiplied by every spike value.',
+                'live_editable': True,
+            },
+ 
         ]
 
     def build(self, config, addr_map):
@@ -60,8 +71,15 @@ class SpikesDataType(fsgui.node.NodeTypeObject):
             data['spikes_sub'] = trodesnetwork.SourceSubscriber('source.waveforms', server_address = f'{self.network_location.address}:{self.network_location.port}')
 
         def workload(connection, publisher, reporter, data):
+            if connection.pipe_poll(timeout = 0):
+                msg_tag, msg_data = connection.pipe_recv()
+                if msg_tag == 'update':
+                    msg_varname, msg_value = msg_data
+                    config[msg_varname] = msg_value
+
             spikes_data = data['spikes_sub'].receive(timeout=50)
             if spikes_data is not None:
+                spikes_data['samples'] = (np.array(spikes_data['samples']) * config['voltage_scaling_factor']).tolist()
                 publisher.send(spikes_data)
        
         return fsgui.process.build_process_object(setup, workload)
