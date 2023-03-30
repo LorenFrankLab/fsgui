@@ -268,8 +268,8 @@ class MarkSpaceEncoder:
         occupancy_histogram = np.bincount(
             observation_covariates,
             minlength=self.bin_count)
+        occupancy_histogram[occupancy_histogram == 0] = np.mean(occupancy_histogram)
         occupancy_histogram_normalized = occupancy_histogram / np.sum(occupancy_histogram)
-        occupancy_histogram_normalized[occupancy_histogram_normalized == 0] = 0.0001
 
         query_histogram_normalized = query_histogram / occupancy_histogram_normalized
 
