@@ -182,13 +182,12 @@ class MarkSpaceEncoderType(fsgui.node.NodeTypeObject):
                 reporter.send({
                     # 'spike_received_time': received_time - start_time,
                     # 'query_time': time_query - start_time,
-                    'mark': mark.tolist(),
-                    'query_histogram_normalized': query_histogram_normalized,
-                    'query_histogram': query_histogram,
-                    'occupancy_histogram': occupancy_histogram,
-                    'occupancy_histogram_normalized': occupancy_histogram_normalized,
-                    'distance_dist': distance_dist,
-                    'weights_dist': weights_dist,
+                    'me_mark': mark.tolist(),
+                    'me_query_histogram': query_histogram,
+                    'me_occupancy_histogram': occupancy_histogram,
+                    'me_distance_dist': distance_dist,
+                    'me_weights_dist': weights_dist,
+                    'me_covariate': np.bincount([data['current_covariate_value']], minlength=config['bin_count']).tolist() if data['current_covariate_value'] is not None else None,
                 })
 
                 if data['update_model_bool']:
