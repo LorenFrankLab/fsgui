@@ -140,12 +140,12 @@ class DecoderType(fsgui.node.NodeTypeObject):
                 publisher.send(posterior)
 
                 reporter.send({
-                    'spikes_processed': spikes_processed,
-                    'processing_time': (t1-t0) * 1000,
-                    'dec_posterior': posterior,
+                    # 'dec_spikes_processed': spikes_processed,
+                    # 'dec_processing_time': (t1-t0) * 1000,
+                    # 'dec_posterior': posterior,
                     'dec_likelihood': likelihood,
-                    'dec_prior': prior,
-                    'dec_transitioned_prior': transitioned_prior,
+                    # 'dec_prior': prior,
+                    # 'dec_transitioned_prior': transitioned_prior,
                     'dec_covariate': np.bincount([data['filter_model'].current_covariate_value], minlength=config['bin_count']).tolist() if data['filter_model'].current_covariate_value is not None else None,
                 })
 
