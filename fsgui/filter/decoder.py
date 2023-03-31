@@ -314,11 +314,10 @@ class MarkCalculatorNative:
 
         self.t[1] = time.time()
         for channel in range(self.mark_ndims):
-            for t_ind in range(self.waveform_length):
-                value = samples[channel][t_ind]
-                if value > highest_value:
-                    highest_index = t_ind
-                    highest_value = value
+            value = max(samples[channel])
+            if value > highest_value:
+                highest_index = samples[channel].index(value)
+                highest_value = value
         self.t[2] = time.time()
         mark = [samples[ch][highest_index] for ch in range(self.mark_ndims)]
         self.t[3] = time.time()
