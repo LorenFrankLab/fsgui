@@ -177,13 +177,24 @@ class SpikeContentDecoder(fsgui.node.NodeTypeObject):
             data['timestats'] = {
                 't': {},
                 'stats': {},
-                'track': [1,2,3,80],
+                'track': [1,2,3,4,5],
             }
             for i in data['timestats']['track']:
                 data['timestats']['stats'][i] = []
 
+
+            data['iteration'] = 0
+
         def workload(connection, publisher, reporter, data):
+            t = data['timestats']['t']
+            stats = data['timestats']['stats']
+            track = data['timestats']['track']
+
+            t[0] = time.time()
+
             results = dict(data['poller'].poll(timeout=500))
+
+            t[1] = time.time()
 
             # update signals from the GUI
             if connection.pipe_poll(timeout = 0):
@@ -200,51 +211,49 @@ class SpikeContentDecoder(fsgui.node.NodeTypeObject):
                             region_zscore=config['region_zscore']
                         )
 
+            t[2] = time.time()
+
             # update sub
             if data['update_sub'].sock in results:
                 item = data['update_sub'].recv()
-                while item is not None:
-                    data['update_model_bool'] = item
-                    item = data['update_sub'].recv(timeout=0)
+                data['update_model_bool'] = item
+
+            t[3] = time.time()
  
             # update covariate
             if data['covariate_sub'].sock in results:
                 item = data['covariate_sub'].recv()
-                while item is not None:
-                    data['current_covariate_value'] = item
-                    item = data['covariate_sub'].recv(timeout=0)
+                data['current_covariate_value'] = item
+
+            t[4] = time.time()
 
             if data['spikes_sub'].sock in results:
-                t = data['timestats']['t']
-                stats = data['timestats']['stats']
-                track = data['timestats']['track']
-               
+              
                 spikes_data = data['spikes_sub'].recv()
 
-                t[0] = time.time()
                 tetrode_id = spikes_data['nTrodeId']
                 bin_id = data['current_covariate_value']
 
-                t[79] = time.time()
                 mark = data['mark_calculator'].compute_mark(spikes_data['samples'])
-                t[80] = time.time()
 
-                t[1] = time.time()
 
                 query_histogram = data['mark_encoder'].query_mark(tetrode_id, mark)
 
-                t[2] = time.time()
 
                 if data['update_model_bool']:
                     data['mark_encoder'].add_mark(tetrode_id, mark, data['current_covariate_value'])
 
-                t[3] = time.time()
+            t[5] = time.time()
 
-                # deposit data into a thing
-                # time bin buffer
-                for i in track:
-                    stats[i].append(t[i] - t[i-1])
+            # deposit data into a thing
+            # time bin buffer
+            for i in track:
+                stats[i].append(t[i] - t[i-1])
 
+
+
+            data['iteration'] += 1
+            if data['iteration'] % 100 == 0:
                 for i in track:
                     print(f'time {i}: {np.mean(stats[i])*6:.6f}us (sum {np.sum(stats[i])*6:.6f}us)')
 
