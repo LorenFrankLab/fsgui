@@ -248,6 +248,12 @@ class SpikeContentDecoder(fsgui.node.NodeTypeObject):
                 for i in track:
                     print(f'time {i}: {np.mean(stats[i])*6:.6f}us (sum {np.sum(stats[i])*6:.6f}us)')
 
+                for i in data['mark_calculator'].track:
+                    stats = data['mark_calculator'].stats
+                    print(f'marktime {i}: {np.mean(stats[i])*6:.6f}us (sum {np.sum(stats[i])*6:.6f}us)')
+
+
+
         return fsgui.process.build_process_object(setup, workload)
     
 class EncodedSpikeBuffer:
@@ -262,15 +268,30 @@ class EncodedSpikeBuffer:
 
 class MarkCalculator:
     def __init__(self):
-        pass
+        self.t = {}
+        self.stats = {}
+        self.track = [1,2,3,4,5,6]
+        for i in self.track:
+            self.stats[i] = []
     
     def compute_mark(self, samples):
+        self.t[0] = time.time()
         datapoint = np.array(samples)
+        self.t[1] = time.time()
         spike_data = np.atleast_2d(datapoint.data)
+        self.t[2] = time.time()
         channel_peaks = np.max(spike_data, axis=1)
+        self.t[3] = time.time()
         peak_channel_ind = np.argmax(channel_peaks)
+        self.t[4] = time.time()
         t_ind = np.argmax(spike_data[peak_channel_ind])
+        self.t[5] = time.time()
         amp_mark = spike_data[:, t_ind]
+        self.t[6] = time.time()
+
+        for i in self.track:
+            self.stats[i].append(self.t[i] - self.t[i-1])
+
 
         return amp_mark
 
@@ -278,20 +299,36 @@ class MarkCalculatorNative:
     def __init__(self, mark_ndims, waveform_length):
         self.mark_ndims = mark_ndims
         self.waveform_length = waveform_length
+
+        self.t = {}
+        self.stats = {}
+        self.track = [1,2,3,4]
+        for i in self.track:
+            self.stats[i] = []
+    
     
     def compute_mark(self, samples):
+        self.t[0] = time.time()
         highest_index = 0
         highest_value = -1
 
+        self.t[1] = time.time()
         for channel in range(self.mark_ndims):
             for t_ind in range(self.waveform_length):
                 value = samples[channel][t_ind]
                 if value > highest_value:
                     highest_index = t_ind
                     highest_value = value
-
+        self.t[2] = time.time()
         mark = [samples[ch][highest_index] for ch in range(self.mark_ndims)]
-        return np.array(mark)
+        self.t[3] = time.time()
+        mark = np.array(mark)
+        self.t[4] = time.time()
+
+        for i in self.track:
+            self.stats[i].append(self.t[i] - self.t[i-1])
+
+        return mark
 
 class MarkSpaceEncoderSynchronous:
     def __init__(self, bin_count, mark_ndims, kernel_sigma, n_minimum_in_region, region_zscore):
