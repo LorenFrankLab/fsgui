@@ -60,3 +60,17 @@ class ArrayList:
 
     def get_slice(self):
         return self.array[:self.index,:]
+
+class ArrayListSingleWidth:
+    def __init__(self, capacity=10000, dtype=None):
+        self.array = np.zeros(shape=(capacity,), dtype=dtype)
+        self.index = 0 
+    
+    def place(self, x):
+        if self.index >= self.array.shape[0]:
+            self.array = np.concatenate([self.array, np.zeros_like(self.array)])
+        self.array[self.index] = x
+        self.index += 1
+
+    def get_slice(self):
+        return self.array[:self.index]

@@ -7,6 +7,7 @@ import fsgui.filter.spatial.rectangle
 import fsgui.filter.spatial.speed
 import fsgui.filter.spikes.markspace
 import fsgui.filter.cluster
+import fsgui.filter.decoder
 import fsgui.filter.arm
 
 class FilterProvider:
@@ -22,5 +23,6 @@ class FilterProvider:
             fsgui.filter.spikes.markspace.MarkSpaceEncoderType('mark-space-encoder-type'),
             fsgui.filter.cluster.DecoderType('point-process-encoder-type'),
             fsgui.filter.arm.ArmFilterType('arm-filter-type'),
+            fsgui.filter.decoder.SpikeContentDecoder('spike-content-decoder-type'),
         ]
 
