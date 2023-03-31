@@ -173,6 +173,15 @@ class SpikeContentDecoder(fsgui.node.NodeTypeObject):
             data['update_model_bool'] = False
             data['current_covariate_value'] = None
 
+            # timing code
+            data['timestats'] = {
+                't': {},
+                'stats': {},
+                'track': [1,2,3,80],
+            }
+            for i in data['timestats']['track']:
+                data['timestats']['stats'][i] = []
+
         def workload(connection, publisher, reporter, data):
             results = dict(data['poller'].poll(timeout=500))
 
@@ -206,45 +215,36 @@ class SpikeContentDecoder(fsgui.node.NodeTypeObject):
                     item = data['covariate_sub'].recv(timeout=0)
 
             if data['spikes_sub'].sock in results:
-                received_spikes = []
+                t = data['timestats']['t']
+                stats = data['timestats']['stats']
+                track = data['timestats']['track']
+               
                 spikes_data = data['spikes_sub'].recv()
-                while spikes_data is not None:
-                    received_spikes.append(spikes_data)
-                    spikes_data = data['spikes_sub'].recv(timeout=0)
-                
-                print(f'received {len(received_spikes)} spikes that piled up')
 
-                t = {}
-                stats = {}
-                track = [1,2,3,80]
+                t[0] = time.time()
+                tetrode_id = spikes_data['nTrodeId']
+                bin_id = data['current_covariate_value']
 
+                t[79] = time.time()
+                mark = data['mark_calculator'].compute_mark(spikes_data['samples'])
+                t[80] = time.time()
+
+                t[1] = time.time()
+
+                query_histogram = data['mark_encoder'].query_mark(tetrode_id, mark)
+
+                t[2] = time.time()
+
+                if data['update_model_bool']:
+                    data['mark_encoder'].add_mark(tetrode_id, mark, data['current_covariate_value'])
+
+                t[3] = time.time()
+
+                # deposit data into a thing
+                # time bin buffer
                 for i in track:
-                    stats[i] = []
-                
-                for spikes_data in received_spikes:
-                    t[0] = time.time()
-                    tetrode_id = spikes_data['nTrodeId']
-                    bin_id = data['current_covariate_value']
+                    stats[i].append(t[i] - t[i-1])
 
-                    t[79] = time.time()
-                    mark = data['mark_calculator'].compute_mark(spikes_data['samples'])
-                    t[80] = time.time()
-
-                    t[1] = time.time()
-
-                    query_histogram = data['mark_encoder'].query_mark(tetrode_id, mark)
-
-                    t[2] = time.time()
-
-                    if data['update_model_bool']:
-                        data['mark_encoder'].add_mark(tetrode_id, mark, data['current_covariate_value'])
-
-                    t[3] = time.time()
-
-                    # deposit data into a thing
-                    # time bin buffer
-                    for i in track:
-                        stats[i].append(t[i] - t[i-1])
                 for i in track:
                     print(f'time {i}: {np.mean(stats[i])*6:.6f}us (sum {np.sum(stats[i])*6:.6f}us)')
 
