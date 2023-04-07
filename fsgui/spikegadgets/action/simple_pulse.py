@@ -36,10 +36,11 @@ class SimpleDigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
         return [
             {
                 'type': 'checkbox',
-                'label': 'enabled',
-                'checked': 'start',
-                'unchecked': 'stop',
-            }
+                'label': 'laser enabled',
+                'name': 'enabled',
+                'checked': 'enable',
+                'unchecked': 'disable',
+            },
         ]
 
     def write_template(self, config = None):
