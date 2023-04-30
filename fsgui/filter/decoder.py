@@ -32,6 +32,7 @@ class SpikeContentDecoder(fsgui.node.NodeTypeObject):
             'minimum_spike_amplitude_filter': 100,
             'n_minimum_in_region': 10,
             'region_zscore': 1.96,
+            'tetrode_selection': None,
         }
 
         return [
@@ -138,6 +139,13 @@ class SpikeContentDecoder(fsgui.node.NodeTypeObject):
                 'upper': 10000,
                 'decimals': 2,
                 'default': config['region_zscore'],
+                'live_editable': True,
+            },
+            {
+                'label': 'Tetrode selection',
+                'name': 'tetrode_selection',
+                'type': 'tetrode_selection',
+                'default': config['tetrode_selection'],
                 'live_editable': True,
             },
         ]

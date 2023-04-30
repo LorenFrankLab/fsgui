@@ -509,3 +509,65 @@ class FSGuiLinearizationSelectionWidget(qtgui.GuiVBoxContainer):
             'segments': [widget.read_value() for widget in self.segment_widgets]
         }
         return value
+
+class FSGuiTetrodeSelectionWidget(qtgui.GuiVBoxContainer):
+    """
+    """
+    # takes None
+    # is_include: bool
+    # tetrodes: [integer]
+    # keep it as a dict
+    
+    edit_available = QtCore.pyqtSignal()
+
+    def __init__(self, default = None, editable=True):
+        super().__init__()
+
+        self.editable = editable
+
+        initial_state = default if default is not None else {'is_include': True, 'tetrodes': [33,44,56]}
+
+        self.set_include = qtgui.forms.GuiFormBooleanWidget(default=initial_state['is_include'], editable=editable)
+        self.set_include.edit_available.connect(lambda: self.edit_available.emit())
+        self.layout().addWidget(QtWidgets.QLabel('Include list of tetrodes'))
+        self.layout().addWidget(self.set_include)
+
+        self.add_button = QtWidgets.QPushButton('Add tetrode')
+        self.add_button.setEnabled(editable)
+        self.add_button.clicked.connect(self.__handle_add_button)
+        self.layout().addWidget(self.add_button)
+
+        self.remove_button = QtWidgets.QPushButton('Remove tetrode')
+        self.remove_button.setEnabled(editable)
+        self.remove_button.clicked.connect(self.__handle_remove_button)
+        self.layout().addWidget(self.remove_button)
+
+        self.tetrodes_layout = QtWidgets.QVBoxLayout()
+        self.layout().addLayout(self.tetrodes_layout)
+
+        self.tetrode_widgets = []
+        for existing_tetrode in initial_state['tetrodes']:
+            widget = qtgui.forms.GuiFormIntegerWidget(0, 100000, default=existing_tetrode, editable=editable)
+            widget.edit_available.connect(lambda: self.edit_available.emit())
+            self.tetrode_widgets.append(widget)
+            self.tetrodes_layout.addWidget(widget)
+
+    def __handle_add_button(self):
+        widget = qtgui.forms.GuiFormIntegerWidget(0, 100000, editable=self.editable)
+        widget.edit_available.connect(lambda: self.edit_available.emit())
+        self.tetrode_widgets.append(widget)
+        self.tetrodes_layout.addWidget(widget)
+
+        self.edit_available.emit()
+
+    def __handle_remove_button(self):
+        widget = self.tetrode_widgets.pop()
+        self.tetrodes_layout.removeWidget(widget)
+
+        self.edit_available.emit()
+
+    def read_value(self):
+        return {
+            'is_include': self.set_include.read_value(),
+            'tetrodes': [widget.read_value() for widget in self.tetrode_widgets]
+        }

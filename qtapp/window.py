@@ -488,6 +488,7 @@ class FSGuiWidget(QtWidgets.QWidget):
             ('node:tree', lambda i, e: qtapp.component.FSGuiFilterSelectionWidget(filters=get_options_datatype('bool'), default=i.get('default'), editable=e)),
             ('geometry', lambda i, e: qtapp.component.FSGuiGeometrySelectionWidget(default=i.get('default'), editable=e)),
             ('linearization', lambda i, e: qtapp.component.FSGuiLinearizationSelectionWidget(default=i.get('default'), editable=e)),
+            ('tetrode_selection', lambda i, e: qtapp.component.FSGuiTetrodeSelectionWidget(default=i.get('default'), editable=e)),
         ]
         return form_extra
 
