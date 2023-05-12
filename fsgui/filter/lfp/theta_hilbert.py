@@ -102,9 +102,8 @@ class ThetaPhaseHilbertFilterType(fsgui.node.NodeTypeObject):
             },
         ]
 
-    def build(self, config, addr_map):
-        pub_address = addr_map[config['source_id']]
-        
+    def build(self, config, pipe_map):
+        source_pipe = pipe_map[config['source_id']]
 
         theta_filter = ThetaHilbertYuleWalkerFilter(
             phase_deg=config['theta_filter_degrees'],
@@ -116,12 +115,11 @@ class ThetaPhaseHilbertFilterType(fsgui.node.NodeTypeObject):
         tetrode_id=config['reference_ntrode']
 
         def setup(logging, data):
-            data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
             data['filter_model'] = theta_filter
 
         def workload(connection, publisher, reporter, data):
-            item = data['sub'].recv(timeout=500)
-            if item is not None:
+            if source_pipe.poll(timeout=1):
+                item = source_pipe.recv()
                 lfpVal=item['lfpData'][tetrode_id]
                 sampleTime=item['localTimestamp']
 
