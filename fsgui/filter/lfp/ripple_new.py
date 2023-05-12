@@ -36,6 +36,7 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
             'sd_threshold': 3.5,
             'n_above_threshold': 1,
             'tetrode_selection': None,
+            'update_mean_sd': True,
             'display_channel': 1,
         }
 
@@ -169,6 +170,13 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 'default': config['tetrode_selection'],
             },
             {
+                'label': 'Update mean/sd estimate',
+                'name': 'update_mean_sd',
+                'type': 'boolean',
+                'default': config['update_mean_sd'],
+                'live_editable': True,
+            },
+            {
                 'label': 'Display channel (reporting graphics)',
                 'name': 'display_channel',
                 'type': 'integer',
@@ -215,7 +223,6 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
             data['M2'] = np.zeros(num_signals)
             data['counts'] = np.zeros(num_signals)
             data['sigmas'] = np.zeros(num_signals)
-            data['update_stats'] = True
 
             data['display_index'] = np.where(tetrode_ids == config['display_channel'] - 1)[0]
 
@@ -235,7 +242,7 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 lfps = np.array(item['lfpData'])[tetrode_ids]
                 ripple_data, envelope = data['filter_model'].add_new_data(lfps)
 
-                if data['update_stats']:
+                if config['update_mean_sd']:
                     # updates stats
                     data['means'], data['M2'], data['counts']= estimate_new_stats_welford(
                         envelope, data['means'], data['M2'], data['counts']
