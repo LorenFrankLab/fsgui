@@ -17,6 +17,7 @@ class BinGeneratorType(fsgui.node.NodeTypeObject):
                 'type_id': type_id,
                 'instance_id': '',
                 'nickname': name,
+                'sample_rate': 1500,
             }
         )
 
@@ -42,9 +43,18 @@ class BinGeneratorType(fsgui.node.NodeTypeObject):
                 'default': config['nickname'],
                 'tooltip': 'This is the name the source is displayed as in menus.',
             },
+            {
+                'label': 'Sample rate',
+                'name': 'sample_rate',
+                'type': 'integer',
+                'default': config['sample_rate'],
+                'lower': 1,
+                'upper': 30000,
+            }
         ]
     
     def build(self, config, param_map):
+        sample_rate = float(config['sample_rate'])
         smoothing = 0.1
         dt = 0.01
 
@@ -62,6 +72,6 @@ class BinGeneratorType(fsgui.node.NodeTypeObject):
 
             publisher.send(value)
             reporter.send({'bin_value': value})
-            time.sleep(0.01)
+            time.sleep(1.0/sample_rate)
         
         return fsgui.process.build_process_object(setup, workload)
