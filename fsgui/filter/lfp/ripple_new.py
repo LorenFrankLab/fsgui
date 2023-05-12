@@ -224,7 +224,7 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
             data['counts'] = np.zeros(num_signals)
             data['sigmas'] = np.zeros(num_signals)
 
-            data['display_index'] = np.where(tetrode_ids == config['display_channel'] - 1)[0]
+            data['display_index'] = np.where(tetrode_ids == config['display_channel'] - 1)[0][0]
 
         def workload(connection, publisher, reporter, data):
             if connection.pipe_poll(timeout = 0):
