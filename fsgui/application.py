@@ -209,16 +209,23 @@ class FSGuiApplication:
                 raise ValueError(f'While building "{node.nickname}": one of the children instance_ids has a value of {None}. Please make sure node is properly configured.')
             self.__build_recursive(child_id)
 
-        addr_map = self.__get_child_address_map(instance_id)
-
         node = self.added_nodes[instance_id]
-        self.__build_node_if_not_built(instance_id, node.param_config, addr_map)
+        self.__build_node_if_not_built(instance_id, node.param_config)
 
-    def __build_node_if_not_built(self, instance_id, config, addr_map):
+    def __build_node_if_not_built(self, instance_id, config):
         node = self.added_nodes[instance_id]
+
+        pipe_receiver_dict = {}
+
+        for param_value_id in self.get_node_children_ids(instance_id):
+            param_node = self.added_nodes[param_value_id]
+            pipe_receiver, pipe_sender = mp.Pipe(duplex=False)
+            param_node.built_process[4].send(pipe_sender)
+            pipe_receiver_dict[param_value_id] = pipe_receiver
+
         if node.built_process is None:
             try:
-                built_process = self.available_types[node.type_id].type_object.build(node.param_config, addr_map)
+                built_process = self.available_types[node.type_id].type_object.build(node.param_config, pipe_receiver_dict)
                 assert built_process is not None
                 node.build_error = None
                 node.built_process = built_process
@@ -259,13 +266,6 @@ class FSGuiApplication:
             get_instance_ids(node.param_config[varname], vartype)
             for varname, vartype in type_dict.items() 
             if vartype.startswith('node:')]))
-
-    def __get_child_address_map(self, instance_id):
-        return {
-            # tuple location [1] is the pub_address
-            instance_id : self.added_nodes[instance_id].built_process[1]
-            for instance_id in self.get_node_children_ids(instance_id)
-        }
 
     def __get_param_type_dict(self, instance_id):
         return {
