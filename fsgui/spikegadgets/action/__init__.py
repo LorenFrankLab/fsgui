@@ -146,11 +146,11 @@ def generate_statescript(function_num, pre_delay,
 
     return script
 
-def build_shortcut_command(sub_addresses, filter_tree, network_location, lockout_time, on_funct_num, off_funct_num=None, abort_funct_num=None):
+def build_shortcut_command(pipe_map, filter_tree, network_location, lockout_time, on_funct_num, off_funct_num=None, abort_funct_num=None):
     def setup(reporter, data):
         # assign each
         data['sub_receivers'] = {
-            sub_name: fsgui.network.UnidirectionalChannelReceiver(sub_address)
+            sub_name: pipe_map[sub_address]
             for sub_name, sub_address in sub_addresses.items()
         }
 
@@ -168,8 +168,8 @@ def build_shortcut_command(sub_addresses, filter_tree, network_location, lockout
     def workload(connection, publisher, reporter, data):
         # loop updates all of the sub_values
         for sub_name, receiver in data['sub_receivers'].items():
-            value = receiver.recv(timeout=0)
-            if value is not None:
+            if receiver.poll(timeout=0):
+                value = receiver.recv()
                 data['sub_values'][sub_name] = value
 
         def evaluate_node(node, data):
