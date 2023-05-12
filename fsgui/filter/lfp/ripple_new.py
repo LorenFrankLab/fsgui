@@ -234,7 +234,7 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                     config[msg_varname] = msg_value
 
                     if msg_varname == 'display_channel':
-                        data['display_index'] = np.where(tetrode_ids == config['display_channel'] - 1)[0]
+                        data['display_index'] = np.where(tetrode_ids == config['display_channel'] - 1)[0][0]
 
             if source_pipe.poll(timeout=1):
                 item = source_pipe.recv()
