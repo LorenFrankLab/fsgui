@@ -176,8 +176,8 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 'upper': 10000,
                 'default': config['display_channel'],
                 'tooltip': 'The channel to display in the reporting graphics view. Ignore if not using graphics.',
+                'live_editable': True,
             },
- 
         ]
     
     def build(self, config, pipe_map):
@@ -189,9 +189,6 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
         else:
             tetrode_ids = np.setdiff1d(np.arange(config['num_signals']), np.array(tetrodes) - 1)
         num_signals = len(tetrode_ids)
-
-        display_channel = config['display_channel']
-        display_index = np.where(tetrode_ids == display_channel - 1)[0]
 
         rip_filter = EnvelopeEstimator(
             num_signals=num_signals,
@@ -220,7 +217,18 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
             data['sigmas'] = np.zeros(num_signals)
             data['update_stats'] = True
 
+            data['display_index'] = np.where(tetrode_ids == config['display_channel'] - 1)[0]
+
         def workload(connection, publisher, reporter, data):
+            if connection.pipe_poll(timeout = 0):
+                msg_tag, msg_data = connection.pipe_recv()
+                if msg_tag == 'update':
+                    msg_varname, msg_value = msg_data
+                    config[msg_varname] = msg_value
+
+                    if msg_varname == 'display_channel':
+                        data['display_index'] = np.where(tetrode_ids == config['display_channel'] - 1)[0]
+
             if source_pipe.poll(timeout=1):
                 item = source_pipe.recv()
 
@@ -244,9 +252,9 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
 
                 reporter.send({
                     'triggered': triggered,
-                    'raw_lfp_value': lfps[display_index],
-                    'ripple_data': ripple_data[display_index],
-                    'envelope': envelope[display_index],
+                    'raw_lfp_value': lfps[data['display_index']],
+                    'ripple_data': ripple_data[data['display_index']],
+                    'envelope': envelope[data['display_index']],
                 })
 
         return fsgui.process.build_process_object(setup, workload)
