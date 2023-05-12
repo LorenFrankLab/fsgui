@@ -259,7 +259,7 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
 
                 reporter.send({
                     'triggered': triggered,
-                    'raw_lfp_value': lfps[data['display_index']],
+                    'raw_lfp_value': lfps[data['display_index']].tolist(),
                     'ripple_data': ripple_data[data['display_index']],
                     'envelope': envelope[data['display_index']],
                 })
