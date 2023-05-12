@@ -25,6 +25,7 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
             'instance_id': '',
             'nickname': self.name(),
             'source_id': None,
+            'num_signals': 32,
             'bp_order': 2,
             'bp_crit_freqs_low': 150,
             'bp_crit_freqs_high': 250,
@@ -60,6 +61,14 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 'type': 'node:float',
                 'default': config['source_id'],
                 'tooltip': 'Source to receive LFP data',
+            },
+            {
+                'label': 'Number of signals (e.g. 32 vs 64 tetrodes)',
+                'name': 'num_signals',
+                'type': 'integer',
+                'lower': 0,
+                'upper': 100000,
+                'default': config['num_signals'],
             },
             {
                 'label': 'Bandpass filter: order',
@@ -158,8 +167,7 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
     def build(self, config, addr_map):
         pub_address = addr_map[config['source_id']]
 
-        # change this so it's initialized
-        num_signals = 32
+        num_signals = config['num_signals']
         
         rip_filter = EnvelopeEstimator(
             num_signals=num_signals,
