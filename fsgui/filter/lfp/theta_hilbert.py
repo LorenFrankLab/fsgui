@@ -11,28 +11,26 @@ import time
 
 class ThetaPhaseHilbertFilterType(fsgui.node.NodeTypeObject):
     def __init__(self, type_id):
-        name='Theta phase Hilbert filter'
         super().__init__(
             type_id=type_id,
             node_class='filter',
-            name=name,
+            name='Theta filter (Hilbert phase)',
             datatype='bool',
-            default= {
-                'type_id': type_id,
-                'instance_id': '',
-                'nickname': name,
-                'source_id': None,
-                'theta_filter_degrees': 0,
-                'reference_ntrode': 0,
-                'lfp_sample_rate': 1500,
-                'timestamp_interval': 20,
-                'trim_proportion': 0.15,
-            }
-        )
+       )
 
     def write_template(self, config = None):
-        if config is None:
-            config = self.default()
+        config = config if config is not None else {
+            'type_id': self.type_id(),
+            'instance_id': '',
+            'nickname': self.name(),
+            'source_id': None,
+            'theta_filter_degrees': 0,
+            'reference_ntrode': 0,
+            'lfp_sample_rate': 1500,
+            'timestamp_interval': 20,
+            'trim_proportion': 0.15,
+        }
+
         return [
             {
                 'name': 'type_id',
@@ -86,7 +84,7 @@ class ThetaPhaseHilbertFilterType(fsgui.node.NodeTypeObject):
                 'units': 'Hz',
             },
             {
-                'label': 'Autoregression model trim proportion',
+                'label': 'Timestamp interval (from hardware)',
                 'name': 'timestamp_interval',
                 'type': 'integer',
                 'lower': 0,

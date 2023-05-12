@@ -10,23 +10,22 @@ class ThetaFilterType(fsgui.node.NodeTypeObject):
         super().__init__(
             type_id=type_id,
             node_class='filter',
-            name='Theta Filter',
+            name='Theta filter (zero crossing)',
             datatype='bool',
-            default= {
-                'type_id': type_id,
-                'instance_id': '',
-                'nickname': 'Theta filter',
-                'source_id': None,
-                'filterDelay': 730,
-                'thetaPhase': 0,
-                'tetrode_id': 0,
-                'sample_rate': 30000,
-            }
-        )
+       )
 
     def write_template(self, config = None):
-        if config is None:
-            config = self.default()
+        config = config if config is not None else {
+            'type_id': self.type_id(),
+            'instance_id': '',
+            'nickname': self.name(),
+            'source_id': None,
+            'filterDelay': 730,
+            'thetaPhase': 0,
+            'tetrode_id': 0,
+            'sample_rate': 30000,
+        }
+
         return [
             {
                 'name': 'type_id',
