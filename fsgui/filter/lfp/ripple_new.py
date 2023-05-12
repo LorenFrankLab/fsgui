@@ -35,6 +35,8 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
             'env_band_edges_high': 55,
             'sd_threshold': 3.5,
             'n_above_threshold': 1,
+            'tetrode_selection': None,
+            'display_channel': 1,
         }
 
         return [
@@ -160,15 +162,37 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 'default': config['n_above_threshold'],
                 'tooltip': 'The number of channels that need to have a ripple detected to trigger the filter.',
             },
- 
+            {
+                'label': 'Tetrode selection',
+                'name': 'tetrode_selection',
+                'type': 'tetrode_selection',
+                'default': config['tetrode_selection'],
+            },
+            {
+                'label': 'Display channel (reporting graphics)',
+                'name': 'display_channel',
+                'type': 'integer',
+                'lower': 1,
+                'upper': 10000,
+                'default': config['display_channel'],
+                'tooltip': 'The channel to display in the reporting graphics view. Ignore if not using graphics.',
+            },
  
         ]
     
-    def build(self, config, addr_map):
-        pub_address = addr_map[config['source_id']]
+    def build(self, config, pipe_map):
+        source_pipe = pipe_map[config['source_id']]
 
-        num_signals = config['num_signals']
-        
+        tetrodes = config['tetrode_selection']['tetrodes']
+        if config['tetrode_selection']['is_include']:
+            tetrode_ids = np.array(tetrodes) - 1
+        else:
+            tetrode_ids = np.setdiff1d(np.arange(config['num_signals']), np.array(tetrodes) - 1)
+        num_signals = len(tetrode_ids)
+
+        display_channel = config['display_channel']
+        display_index = np.where(tetrode_ids == display_channel - 1)[0]
+
         rip_filter = EnvelopeEstimator(
             num_signals=num_signals,
             bp_order=config['bp_order'],
@@ -189,7 +213,6 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
             return mean, M2, count
 
         def setup(logging, data):
-            data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
             data['filter_model'] = rip_filter
             data['means'] = np.zeros(num_signals)
             data['M2'] = np.zeros(num_signals)
@@ -198,11 +221,10 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
             data['update_stats'] = True
 
         def workload(connection, publisher, reporter, data):
-            item = data['sub'].recv(timeout=500)
-            if item is not None:
-                lfps=item['lfpData']
-                lfps = np.array(lfps)
+            if source_pipe.poll(timeout=1):
+                item = source_pipe.recv()
 
+                lfps = np.array(item['lfpData'])[tetrode_ids]
                 ripple_data, envelope = data['filter_model'].add_new_data(lfps)
 
                 if data['update_stats']:
@@ -221,8 +243,10 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 publisher.send(triggered)
 
                 reporter.send({
-                    'ripple_data': ripple_data[0],
-                    'envelope': envelope[0],
+                    'triggered': triggered,
+                    'raw_lfp_value': lfps[display_index],
+                    'ripple_data': ripple_data[display_index],
+                    'envelope': envelope[display_index],
                 })
 
         return fsgui.process.build_process_object(setup, workload)
