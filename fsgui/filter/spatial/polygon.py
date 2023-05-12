@@ -80,8 +80,8 @@ class GeometryFilterType(fsgui.node.NodeTypeObject):
             },
        ]
 
-    def build(self, config, addr_map):
-        pub_address = addr_map[config['source_id']]
+    def build(self, config, pipe_map):
+        source_pipe = pipe_map[config['source_id']]
 
         geometry_file = fsgui.geometry.TrackGeometryFileReader().read_file(config['trackgeometry']['filename'])
 
@@ -91,12 +91,11 @@ class GeometryFilterType(fsgui.node.NodeTypeObject):
         )
 
         def setup(logging, data):
-            data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
             data['filter_model'] = PolygonFilter(shapely_polygon)
 
         def workload(connection, publisher, reporter, data):
-            item = data['sub'].recv(timeout=500)
-            if item is not None:
+            if source_pipe.poll(timeout=1):
+                item = source_pipe.recv()
                 publisher.send(
                     data['filter_model'].point_in_polygon(
                         x=item['x'],
