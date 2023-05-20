@@ -116,6 +116,7 @@ class ThetaPhaseHilbertFilterType(fsgui.node.NodeTypeObject):
 
         def setup(logging, data):
             data['filter_model'] = theta_filter
+            data['last_known_theta_val'] = 0
 
         def workload(connection, publisher, reporter, data):
             if source_pipe.poll(timeout=1):
@@ -123,11 +124,17 @@ class ThetaPhaseHilbertFilterType(fsgui.node.NodeTypeObject):
                 lfpVal=item['lfpData'][tetrode_id]
                 sampleTime=item['localTimestamp']
 
-                triggered = data['filter_model'].process_theta_data(lfpVal, sampleTime)
+                triggered, theta_val = data['filter_model'].process_theta_data(lfpVal, sampleTime)
+
+                if theta_val is None:
+                    theta_val = data['last_known_theta_val']
+                else:
+                    data['last_known_theta_val'] = theta_val
 
                 publisher.send(triggered)
                 reporter.send({
                     'trig': triggered,
+                    'theta_val': theta_val,
                 })
 
         return fsgui.process.build_process_object(setup, workload)
@@ -218,9 +225,9 @@ class ThetaHilbertYuleWalkerFilter:
         if self.next_trigger_estimate is not None:
             if self.next_trigger_estimate <= sampleTime:
                 self.next_trigger_estimate = None
-                return True
+                return True, None
             else:
-                return False
+                return False, None
         else:
             lfp_data = np.flip(self.lfp_buffer.get_slice)
             lfp_data_ts = np.flip(self.time_buffer.get_slice)
@@ -252,4 +259,4 @@ class ThetaHilbertYuleWalkerFilter:
             if self.trim_n_samples / 4 < future_relative_index and future_relative_index < self.trim_n_samples / 2:
                 self.next_trigger_estimate = lfp_data_ts[-1] + self.timestamp_interval * (future_relative_index)
 
-            return False
+            return False, theta_data[-1]
