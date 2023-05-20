@@ -222,12 +222,16 @@ class ThetaHilbertYuleWalkerFilter:
         self.lfp_buffer.place(lfpVal)
         self.time_buffer.place(sampleTime)
 
+        # extra computation
+        lfp_data = np.flip(self.lfp_buffer.get_slice)
+        theta_data = self.theta_filter.filter_signal(lfp_data)
+
         if self.next_trigger_estimate is not None:
             if self.next_trigger_estimate <= sampleTime:
                 self.next_trigger_estimate = None
-                return True, None
+                return True, theta_data[-1]
             else:
-                return False, None
+                return False, theta_data[-1]
         else:
             lfp_data = np.flip(self.lfp_buffer.get_slice)
             lfp_data_ts = np.flip(self.time_buffer.get_slice)
