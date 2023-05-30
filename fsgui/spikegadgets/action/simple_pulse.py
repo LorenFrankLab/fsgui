@@ -141,7 +141,7 @@ class SimpleDigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
         })
 
         return fsgui.spikegadgets.action.build_shortcut_command(
-            sub_addresses=address_map,
+            pipe_map=address_map,
             filter_tree=config['filter_id'],
             network_location=self.network_location,
             lockout_time=train_length,
