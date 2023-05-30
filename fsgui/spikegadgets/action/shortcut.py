@@ -23,6 +23,7 @@ class StateScriptFunctionActionType(fsgui.node.NodeTypeObject):
                 'filter_id': None,
                 'lockout_time': 0,
                 'functNum': 0,
+                'action_enabled': False,
             }
         )
 
@@ -84,6 +85,14 @@ class StateScriptFunctionActionType(fsgui.node.NodeTypeObject):
                 'default': config['functNum'],
                 'tooltip': 'StateScript function number to run.',
             },
+            {
+                'label': 'Enabled',
+                'name': 'action_enabled',
+                'type': 'boolean',
+                'default': config['action_enabled'],
+                'live_editable': True,
+                'tooltip': 'Whether or not the action is enabled.',
+            },
         ]
 
     def build(self, config, address_map):
@@ -93,4 +102,6 @@ class StateScriptFunctionActionType(fsgui.node.NodeTypeObject):
             network_location=self.network_location,
             lockout_time=config['lockout_time'],
             on_funct_num=config['functNum'],
+            action_enabled=config['action_enabled'],
+            off_when_false=False,
         )

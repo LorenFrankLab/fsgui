@@ -146,30 +146,53 @@ def generate_statescript(function_num, pre_delay,
 
     return script
 
-def build_shortcut_command(pipe_map, filter_tree, network_location, lockout_time, on_funct_num, off_funct_num=None, abort_funct_num=None):
-    def setup(reporter, data):
-        # assign each
-        data['sub_receivers'] = {
-            sub_name: pipe_map[sub_address]
-            for sub_name, sub_address in sub_addresses.items()
-        }
+def build_shortcut_command(
+        pipe_map,
+        filter_tree,
+        network_location,
+        lockout_time,
+        on_funct_num,
+        action_enabled,
+        off_when_false,
+        off_funct_num=None,
+    ):
 
+    def setup(reporter, data):
+        # setup each value
         data['sub_values'] = {
             sub_name: False
-            for sub_name in sub_addresses.keys()
+            for sub_name in pipe_map.keys()
         }
 
         data['trodes_sender'] = trodesnetwork.ServiceConsumer('trodes.hardware', server_address = f'{network_location.address}:{network_location.port}')
 
+        # live updated variables
+        data['action_enabled'] = action_enabled
+        data['off_when_false'] = off_when_false
+
+        # runtime variables
         data['last_triggered'] = None
         data['currently_triggered'] = False
-        data['enabled'] = False
+
+        if data['off_when_false']:
+            assert off_funct_num is not None
 
     def workload(connection, publisher, reporter, data):
-        # loop updates all of the sub_values
-        for sub_name, receiver in data['sub_receivers'].items():
-            if receiver.poll(timeout=0):
-                value = receiver.recv()
+        # update live variables
+        if connection.pipe_poll(timeout = 0):
+            msg_tag, msg_data = connection.pipe_recv()
+            if msg_tag == 'update':
+                msg_varname, msg_value = msg_data
+                # update the variable
+                data[msg_varname] = msg_value
+
+                if data['off_when_false']:
+                    assert off_funct_num is not None
+ 
+        # loop updates all of the sub_values from pipe
+        for sub_name, source_pipe in pipe_map.items():
+            if source_pipe.poll(timeout=0):
+                value = source_pipe.recv()
                 data['sub_values'][sub_name] = value
 
         def evaluate_node(node, data):
@@ -185,47 +208,64 @@ def build_shortcut_command(pipe_map, filter_tree, network_location, lockout_time
                 return value
             else:
                 raise ValueError('evaluate error: {}'.format(node))
-        
 
         evaluation = evaluate_node(filter_tree, data) if filter_tree is not None else False
 
-        if connection.pipe_poll(timeout = 0):
-            message_tag, message_data = connection.pipe_recv()
-            if message_tag == 'enabled':
-                if message_data == 'enable':
-                    data['enabled'] = True
-                elif message_data == 'disable':
-                    data['enabled'] = False
-                else:
-                    raise ValueError(f'message unexpected: {message_data}')
-            elif message_tag == 'abort':
-                if abort_funct_num is not None:
+        if data['action_enabled']:
+            if evaluation:
+                if data['currently_triggered']:
+                    if time.time() > data['last_triggered'] + lockout_time / 1000.0:
+                        # we passed lockout time
+                        data['trodes_sender'].request([
+                            'tag',
+                            'HRSCTrig',
+                            {'fn': on_funct_num}
+                        ])
+                        data['last_triggered'] = time.time()
+                        data['currently_triggered'] = True
+                    else:
+                        # we're in lockout, so we must wait
+                        pass
+                elif not data['currently_triggered']:
+                    # we passed lockout time
                     data['trodes_sender'].request([
                         'tag',
                         'HRSCTrig',
-                        {'fn': abort_funct_num}
+                        {'fn': on_funct_num}
                     ])
-            
-        evaluation = evaluation and data['enabled']
-        
-        if evaluation and (data['last_triggered'] is None or time.time() > data['last_triggered'] + lockout_time / 1000.0):
-            data['last_triggered'] = time.time()
-            data['trodes_sender'].request([
-                'tag',
-                'HRSCTrig',
-                {'fn': on_funct_num}
-            ])
-            data['currently_triggered'] = True
-            reporter.send({'val': True})
-        elif not evaluation and data['currently_triggered']:
-            if off_funct_num is not None:
-                data['trodes_sender'].request([
-                    'tag',
-                    'HRSCTrig',
-                    {'fn': off_funct_num}
-                ])
-            data['currently_triggered'] = False
-            data['last_triggered'] = None
-            reporter.send({'val': False})
+                    data['last_triggered'] = time.time()
+                    data['currently_triggered'] = True
+            elif not evaluation:
+                if time.time() > data['last_triggered'] + lockout_time / 1000.0:
+                    # action already ended, no need to shut off
+                    data['currently_triggered'] = False
+                    data['last_triggered'] = None
+
+                if data['off_when_false'] and off_funct_num is not None:
+                    data['trodes_sender'].request([
+                        'tag',
+                        'HRSCTrig',
+                        {'fn': off_funct_num}
+                    ])
+                    data['currently_triggered'] = False
+                    data['last_triggered'] = None
+
+        elif not data['action_enabled']:
+            # we're disabled, so we want to check
+            if data['currently_triggered']:
+                if time.time() > data['last_triggered'] + lockout_time / 1000.0:
+                    # action already ended, no need to shut off
+                    data['currently_triggered'] = False
+                    data['last_triggered'] = None
+                else:
+                    # we shut off when the action is disabled
+                    if off_funct_num is not None:
+                        data['trodes_sender'].request([
+                            'tag',
+                            'HRSCTrig',
+                            {'fn': off_funct_num}
+                        ])
+                    data['currently_triggered'] = False
+                    data['last_triggered'] = None
 
     return fsgui.process.build_process_object(setup, workload)

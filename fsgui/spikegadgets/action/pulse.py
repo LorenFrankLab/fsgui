@@ -32,6 +32,8 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                 'secondaryBit': 1,
                 'lockout_time': 0,
                 'functNum': 0,
+                'action_enabled': False,
+                'off_when_false': False,
             }
         )
 
@@ -39,19 +41,19 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
 
     def get_gui_config(self):
         return [
-            {
-                'type': 'checkbox',
-                'label': 'laser enabled',
-                'name': 'enabled',
-                'checked': 'enable',
-                'unchecked': 'disable',
-            },
-            {
-                'type': 'button',
-                'label': 'abort',
-                'name': 'abort',
-                'pressed': 'abort',
-            },
+            # {
+            #     'type': 'checkbox',
+            #     'label': 'laser enabled',
+            #     'name': 'enabled',
+            #     'checked': 'enable',
+            #     'unchecked': 'disable',
+            # },
+            # {
+            #     'type': 'button',
+            #     'label': 'abort',
+            #     'name': 'abort',
+            #     'pressed': 'abort',
+            # },
         ]
 
     def write_template(self, config = None):
@@ -170,6 +172,31 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                 'default': config['functNum'],
                 'tooltip': 'StateScript function number to run.',
             },
+            {
+                'label': 'Function number',
+                'name': 'functNum',
+                'type': 'integer',
+                'lower': 0,
+                'upper': 32,
+                'default': config['functNum'],
+                'tooltip': 'StateScript function number to run.',
+            },
+            {
+                'label': 'Enabled',
+                'name': 'action_enabled',
+                'type': 'boolean',
+                'default': config['action_enabled'],
+                'live_editable': True,
+                'tooltip': 'Whether or not the action is enabled.',
+            },
+            {
+                'label': 'Turn off when false',
+                'name': 'off_when_false',
+                'type': 'boolean',
+                'default': config['off_when_false'],
+                'live_editable': True,
+                'tooltip': 'Whether or not the stimulation is shut off when false.',
+            },
         ]
     
     def build(self, config, address_map):
@@ -194,6 +221,8 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
             network_location=self.network_location,
             lockout_time=config['lockout_time'],
             on_funct_num=config['functNum'],
+            action_enabled=config['action_enabled'],
+            off_when_false=config['off_when_false'],
             off_funct_num=config['functNum'] + 1,
-            abort_funct_num=config['functNum'] + 1,
+
         )
