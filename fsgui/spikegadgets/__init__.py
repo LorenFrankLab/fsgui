@@ -5,7 +5,6 @@ import fsgui.spikegadgets.source.spikes
 import fsgui.spikegadgets.source.timestamp
 import fsgui.spikegadgets.action.pulse
 import fsgui.spikegadgets.action.shortcut
-import fsgui.spikegadgets.action.simple_pulse
 
 class SpikeGadgetsNodeProvider:
     def __init__(self, network_location):
@@ -21,6 +20,5 @@ class SpikeGadgetsNodeProvider:
             fsgui.spikegadgets.source.timestamp.TimestampDataType('trodes-timestamp-data-type', self.network_location),
             # actions
             fsgui.spikegadgets.action.pulse.DigitalPulseWaveActionType('trodes-digital-pulse-action-type', self.network_location),
-            fsgui.spikegadgets.action.simple_pulse.SimpleDigitalPulseWaveActionType('trodes-simple-pulse-action-type', self.network_location),
             fsgui.spikegadgets.action.shortcut.StateScriptFunctionActionType('trodes-statescript-function-action-type', self.network_location),
         ]
