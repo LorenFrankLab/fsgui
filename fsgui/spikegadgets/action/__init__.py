@@ -236,7 +236,7 @@ def build_shortcut_command(
                     data['last_triggered'] = time.time()
                     data['currently_triggered'] = True
             elif not evaluation:
-                if time.time() > data['last_triggered'] + lockout_time / 1000.0:
+                if data['currently_triggered'] and time.time() > data['last_triggered'] + lockout_time / 1000.0:
                     # action already ended, no need to shut off
                     data['currently_triggered'] = False
                     data['last_triggered'] = None
