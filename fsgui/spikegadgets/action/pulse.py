@@ -173,15 +173,6 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                 'tooltip': 'StateScript function number to run.',
             },
             {
-                'label': 'Function number',
-                'name': 'functNum',
-                'type': 'integer',
-                'lower': 0,
-                'upper': 32,
-                'default': config['functNum'],
-                'tooltip': 'StateScript function number to run.',
-            },
-            {
                 'label': 'Enabled',
                 'name': 'action_enabled',
                 'type': 'boolean',
