@@ -240,7 +240,8 @@ class GuiForm(QtWidgets.QWidget):
                     button.clicked.connect(functools.partial(print_message, varname=params['name'], widget=widget))
                     self.layout().addRow('', button)
 
-            widget.edit_available.connect(lambda: self.edit_available.emit(self.read_value()))
+            if editable:
+                widget.edit_available.connect(lambda: self.edit_available.emit(self.read_value()))
 
     def read_value(self):
         return {key: self.widgets[key].read_value() for key in self.widgets.keys()}

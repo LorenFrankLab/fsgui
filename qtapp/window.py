@@ -50,6 +50,12 @@ class FSGuiNodeConfigWidget(qtgui.GuiVBoxContainer):
     delete_node = QtCore.pyqtSignal()
     duplicate_node = QtCore.pyqtSignal()
 
+    def send_message_function(self, varname, value):
+        self.message_node.emit(('update', (varname, value)))
+        x = self._form.read_value()
+        x[varname] = value
+        self.edit_node.emit(x)
+
     def __init__(self, datatype, typename, form_config, gui_config, status, form_extra=[]):
         """
         """
@@ -60,7 +66,7 @@ class FSGuiNodeConfigWidget(qtgui.GuiVBoxContainer):
         self.layout().addWidget(QtWidgets.QLabel(f'<b>datatype: {datatype}</b>'))
         self.layout().addWidget(QtWidgets.QLabel(f'<b>type: {typename}</b>'))
         self._form = qtgui.forms.GuiForm(form_config, editable=(not status == 'built'), extra=form_extra,
-            send_message_function=lambda varname, value: self.message_node.emit(('update', (varname, value))))
+            send_message_function=self.send_message_function)
             
         self._form.edit_available.connect(lambda x: self.edit_node.emit(x))
         self.layout().addWidget(self._form)

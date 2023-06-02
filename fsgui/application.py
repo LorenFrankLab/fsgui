@@ -181,11 +181,8 @@ class FSGuiApplication:
         instance_id = config['instance_id']
         node = self.added_nodes[instance_id]
 
-        if node.built_process is not None:
-            # this must be from a live edit
-            pass
-        else:
-            node.param_config = config
+        # edit goes straight without regard to build status
+        node.param_config = config
 
         return instance_id
 
