@@ -18,7 +18,8 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                 'type_id': type_id,
                 'instance_id': '',
                 'nickname': 'Digital Pulsetrain',
-                'filter_id': None,
+                'trigger_id': None,
+                'condition_id': None,
                 'pulseLength': 1,
                 'nPulses': 1,
                 'preDelay': 0,
@@ -38,23 +39,6 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
         )
 
         self.network_location = network_location
-
-    def get_gui_config(self):
-        return [
-            # {
-            #     'type': 'checkbox',
-            #     'label': 'laser enabled',
-            #     'name': 'enabled',
-            #     'checked': 'enable',
-            #     'unchecked': 'disable',
-            # },
-            # {
-            #     'type': 'button',
-            #     'label': 'abort',
-            #     'name': 'abort',
-            #     'pressed': 'abort',
-            # },
-        ]
 
     def write_template(self, config = None):
         if config is None:
@@ -78,11 +62,18 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                 'tooltip': 'This is the name the source is displayed as in menus.',
             },
             {
-                'label': 'Filter',
-                'name': 'filter_id',
+                'label': 'Trigger',
+                'name': 'trigger_id',
                 'type': 'node:tree',
-                'default': config['filter_id'],
-                'tooltip': 'Filter on which to trigger our action',
+                'default': config['trigger_id'],
+                'tooltip': 'Filter expression that can trigger the action',
+            },
+            {
+                'label': 'Condition',
+                'name': 'condition_id',
+                'type': 'node:tree',
+                'default': config['condition_id'],
+                'tooltip': 'Filter expression that is required for action to carry out and when False, the action is stopped',
             },
             {
                 'label': 'Pulse length',
@@ -208,12 +199,12 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
 
         return fsgui.spikegadgets.action.build_shortcut_command(
             pipe_map=address_map,
-            filter_tree=config['filter_id'],
+            filter_tree=config['trigger_id'],
             network_location=self.network_location,
             lockout_time=config['lockout_time'],
             on_funct_num=config['functNum'],
             action_enabled=config['action_enabled'],
             off_when_false=config['off_when_false'],
             off_funct_num=config['functNum'] + 1,
-
+            condition_tree=config['condition_id'],
         )

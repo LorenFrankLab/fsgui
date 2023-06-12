@@ -154,6 +154,7 @@ def build_shortcut_command(
         on_funct_num,
         action_enabled,
         off_when_false,
+        condition_tree=None,
         off_funct_num=None,
     ):
 
@@ -211,6 +212,11 @@ def build_shortcut_command(
 
         evaluation = evaluate_node(filter_tree, data) if filter_tree is not None else False
 
+        # by default the condition is True
+        condition = evaluate_node(condition_tree, data) if condition_tree is not None else True
+
+        evaluation = evaluation and condition
+
         if data['action_enabled']:
             if evaluation:
                 if data['currently_triggered']:
@@ -241,7 +247,7 @@ def build_shortcut_command(
                     data['currently_triggered'] = False
                     data['last_triggered'] = None
 
-                if data['off_when_false'] and off_funct_num is not None:
+                if not condition or data['off_when_false'] and off_funct_num is not None:
                     data['trodes_sender'].request([
                         'tag',
                         'HRSCTrig',
