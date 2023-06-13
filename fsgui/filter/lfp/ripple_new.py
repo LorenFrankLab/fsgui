@@ -152,6 +152,7 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 'decimals': 2,
                 'default': config['sd_threshold'],
                 'tooltip': 'The threshold in standard deviations that a channel has to reach in order to count as a ripple on the channel.',
+                'live_editable': True,
             },
             {
                 'label': 'Number of channels above threshold to trigger filter',
@@ -162,6 +163,7 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 'units': 'channels',
                 'default': config['n_above_threshold'],
                 'tooltip': 'The number of channels that need to have a ripple detected to trigger the filter.',
+                'live_editable': True,
             },
             {
                 'label': 'Tetrode selection',
