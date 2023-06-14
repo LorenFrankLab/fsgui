@@ -242,19 +242,20 @@ def build_shortcut_command(
                     data['last_triggered'] = time.time()
                     data['currently_triggered'] = True
             elif not evaluation:
-                if data['currently_triggered'] and time.time() > data['last_triggered'] + lockout_time / 1000.0:
-                    # action already ended, no need to shut off
-                    data['currently_triggered'] = False
-                    data['last_triggered'] = None
+                if data['currently_triggered']:
+                    if time.time() > data['last_triggered'] + lockout_time / 1000.0:
+                        # action already ended, no need to shut off
+                        data['currently_triggered'] = False
+                        data['last_triggered'] = None
 
-                if not condition or data['off_when_false'] and off_funct_num is not None:
-                    data['trodes_sender'].request([
-                        'tag',
-                        'HRSCTrig',
-                        {'fn': off_funct_num}
-                    ])
-                    data['currently_triggered'] = False
-                    data['last_triggered'] = None
+                    if not condition or data['off_when_false'] and off_funct_num is not None:
+                        data['trodes_sender'].request([
+                            'tag',
+                            'HRSCTrig',
+                            {'fn': off_funct_num}
+                        ])
+                        data['currently_triggered'] = False
+                        data['last_triggered'] = None
 
         elif not data['action_enabled']:
             # we're disabled, so we want to check
