@@ -265,6 +265,8 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                     'rip_lfp_value': lfps[data['display_index']].tolist(),
                     'rip_data': ripple_data[data['display_index']].tolist(),
                     'rip_envelope': envelope[data['display_index']].tolist(),
+                    'rip_mean': data['means'][data['display_index']].tolist(),
+                    'rip_sd': data['sigmas'][data['display_index']].tolist(),
                 })
 
         return fsgui.process.build_process_object(setup, workload)
