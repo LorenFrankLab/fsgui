@@ -80,6 +80,8 @@ def generate_statescript(function_num, pre_delay,
     script += f'int {lockout_var} = 0;' + endl
 
     script += f'function {function_num}' + endl
+    script += s2 + f'portout[25]=1' + endl
+    script += s2 + f'portout[25]=0' + endl
     script += s2 + f'if ({lockout_var} == 0) do' + endl
     script += s4 + f'{lockout_var} = 1' + endl
     script += s4 + f'{go_var} = 1' + endl
@@ -140,6 +142,8 @@ def generate_statescript(function_num, pre_delay,
     # declare the stop function
     script += endl
     script += f'function {stop_function_num}' + endl
+    script += s2 + f'portout[26]=1' + endl
+    script += s2 + f'portout[26]=0' + endl
     script += s2 + f'{go_var} = 0' + endl
     script += s2 + f'portout[{primary_stim_pin}]=0' + endl
     script += 'end;' + endl
