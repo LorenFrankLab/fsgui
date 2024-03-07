@@ -38,6 +38,8 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
             'tetrode_selection': None,
             'update_mean_sd': True,
             'display_channel': 1,
+            'means_magic_input':10,
+            'sigmas_magic_input':5,
         }
 
         return [
@@ -143,6 +145,30 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 'tooltip': 'The high cut frequency of the FIR filter used to envelope the ripple band signal.',
             },
             {
+                'label': 'Mean',
+                'name': 'means_magic_input',
+                'type': 'double',
+                'lower': 0,
+                'upper': 200,
+                'units': 'power',
+                'decimals': 2,
+                'default': 0,
+                'tooltip': 'Hard coded ripple LFP mean, used for mean + threshold * sd',
+                'live_editable': True,
+            },
+            {
+                'label': 'SD',
+                'name': 'sigmas_magic_input',
+                'type': 'double',
+                'lower': 0,
+                'upper': 200,
+                'units': 'power',
+                'decimals': 2,
+                'default': 0,
+                'tooltip': 'Hard coded ripple LFP sd, used for mean + threshold * sd',
+                'live_editable': True,
+            },
+            {
                 'label': 'Threshold',
                 'name': 'sd_threshold',
                 'type': 'double',
@@ -221,10 +247,10 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
 
         def setup(logging, data):
             data['filter_model'] = rip_filter
-            data['means'] = np.zeros(num_signals)
+            data['means'] = config['means_magic_input'] + np.zeros(num_signals) #np.zeros(num_signals)
             data['M2'] = np.zeros(num_signals)
             data['counts'] = np.zeros(num_signals)
-            data['sigmas'] = np.zeros(num_signals)
+            data['sigmas'] = config['sigmas_magic_input'] + np.zeros(num_signals) #np.zeros(num_signals)
 
             data['display_index'] = np.where(tetrode_ids == config['display_channel'] - 1)[0][0]
 
@@ -234,6 +260,15 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 if msg_tag == 'update':
                     msg_varname, msg_value = msg_data
                     config[msg_varname] = msg_value
+
+                    if msg_varname == 'means_magic_input':
+                        print('updating magic input ripple mean')
+                        data['means'] = config['means_magic_input'] + np.zeros(num_signals) #np.zeros(num_signals)
+
+                    if msg_varname == 'sigmas_magic_input':
+                        print('updating magic input ripple sigma')
+                        data['sigmas'] = config['sigmas_magic_input'] + np.zeros(num_signals) #np.zeros(num_signals)
+
 
                     if msg_varname == 'display_channel':
                         data['display_index'] = np.where(tetrode_ids == config['display_channel'] - 1)[0][0]
