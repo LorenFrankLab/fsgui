@@ -38,8 +38,8 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
             'tetrode_selection': None,
             'update_mean_sd': True,
             'display_channel': 1,
-            'means_magic_input':10,
-            'sigmas_magic_input':5,
+            'means_magic_input':50,
+            'sigmas_magic_input':25,
         }
 
         return [

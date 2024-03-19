@@ -80,8 +80,8 @@ def generate_statescript(function_num, pre_delay,
     script += f'int {lockout_var} = 0;' + endl
 
     script += f'function {function_num}' + endl
-    script += s2 + f'portout[25]=1' + endl
-    script += s2 + f'portout[25]=0' + endl
+    #script += s2 + f'portout[25]=1' + endl
+    #script += s2 + f'portout[25]=0' + endl
     script += s2 + f'if ({lockout_var} == 0) do' + endl
     script += s4 + f'{lockout_var} = 1' + endl
     script += s4 + f'{go_var} = 1' + endl
@@ -95,7 +95,9 @@ def generate_statescript(function_num, pre_delay,
 
     # set the number of trains if we're not doing continuous pulses
     if n_pulses != 0:
-        if n_trains != 0:
+        if n_trains == 1: # No extra scheduling
+            pass
+        elif n_trains != 0:
             script += s6 +f'while {go_check} && {train_counter_var} <= {n_trains} do every {train_interval}' + endl
         else:
             # otherwise we want continuous pulse trains, so we use 1 as the check value and skip incrementing the counter below
@@ -124,7 +126,8 @@ def generate_statescript(function_num, pre_delay,
     script += s8 + 'end' + endl
 
     # we need to end the TrainCounter while loop
-    if n_pulses != 0:
+    if n_trains != 1:
+    #if n_pulses != 0:
         script += s6 + 'then do' + endl
         script += s8 + f'{pulse_counter_var} = 1' + endl
         script += s8 + f'{train_counter_var} = 1' + endl
@@ -142,8 +145,8 @@ def generate_statescript(function_num, pre_delay,
     # declare the stop function
     script += endl
     script += f'function {stop_function_num}' + endl
-    script += s2 + f'portout[26]=1' + endl
-    script += s2 + f'portout[26]=0' + endl
+    #script += s2 + f'portout[26]=1' + endl
+    #script += s2 + f'portout[26]=0' + endl
     script += s2 + f'{go_var} = 0' + endl
     script += s2 + f'portout[{primary_stim_pin}]=0' + endl
     script += 'end;' + endl
@@ -176,7 +179,7 @@ def build_shortcut_command(
         data['off_when_false'] = off_when_false
 
         # runtime variables
-        data['last_triggered'] = None
+        data['last_triggered'] = 0
         data['currently_triggered'] = False
 
         if data['off_when_false']:
@@ -221,6 +224,31 @@ def build_shortcut_command(
 
         evaluation = evaluation and condition
 
+        if data['action_enabled']:
+            if evaluation:
+                if time.time() > data['last_triggered'] + lockout_time / 1000.0:
+                    # we passed lockout time
+                        data['last_triggered'] = time.time()
+                        data['trodes_sender'].request([
+                            'tag',
+                            'HRSCTrig',
+                            {'fn': on_funct_num}
+                        ])
+                        print('trigger time')
+                        print(time.time())
+                else:
+                    pass
+        elif not data['action_enabled']:
+            if off_funct_num is not None:
+                data['trodes_sender'].request([
+                        'tag',
+                        'HRSCTrig',
+                        {'fn': off_funct_num}
+                ])
+
+                
+
+        '''
         if data['action_enabled']:
             if evaluation:
                 if data['currently_triggered']:
@@ -278,5 +306,6 @@ def build_shortcut_command(
                         ])
                     data['currently_triggered'] = False
                     data['last_triggered'] = None
+        '''
 
     return fsgui.process.build_process_object(setup, workload)
