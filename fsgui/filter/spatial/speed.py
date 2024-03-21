@@ -112,14 +112,13 @@ class SpeedFilterType(fsgui.node.NodeTypeObject):
             },
         ]
 
-    def build(self, config, addr_map):
-        pub_address = addr_map[config['source_id']]
+    def build(self, config, pipe_map):
+        source_pipe = pipe_map[config['source_id']]
 
         # weighting recent estimates more
         smoothing_filter = [0.31, 0.29, 0.25, 0.15]
 
         def setup(reporter, data):
-            data['sub'] = fsgui.network.UnidirectionalChannelReceiver(pub_address)
             data['filter_model'] = KinematicsEstimator(
                 scale_factor=config['scale_factor'],
                 dt=1/config['position_sampling_rate'],
@@ -129,7 +128,10 @@ class SpeedFilterType(fsgui.node.NodeTypeObject):
             )
 
         def workload(connection, publisher, reporter, data):
-            item = data['sub'].recv(timeout=500)
+            #item = data['sub'].recv(timeout=500)
+            if source_pipe.poll(timeout=1):
+                item = source_pipe.recv()
+
             if item is not None:
                 _, _, speed = data['filter_model'].compute_kinematics(
                     item['x'], item['y'],
@@ -147,6 +149,10 @@ class SpeedFilterType(fsgui.node.NodeTypeObject):
                 triggered = bool(triggered)
 
                 publisher.send(triggered)
+
+                reporter.send({
+                    'speed': speed
+                })
 
         return fsgui.process.build_process_object(setup, workload)
 
