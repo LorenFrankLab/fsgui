@@ -186,6 +186,8 @@ def build_shortcut_command(
             assert off_funct_num is not None
 
     def workload(connection, publisher, reporter, data):
+        triggered = 0
+
         # update live variables
         if connection.pipe_poll(timeout = 0):
             msg_tag, msg_data = connection.pipe_recv()
@@ -196,6 +198,23 @@ def build_shortcut_command(
 
                 if data['off_when_false']:
                     assert off_funct_num is not None
+
+            '''
+            # for reporter/visualization
+            testT = time.time()
+            if (testT % 0.01 <= 1e-3): #update rate is 100Hz, will plot 1000 samples in each hit
+                if triggered == 1:
+                    reporter.send({
+                        'OUTPUT_trigger': 1,
+                        'OUTPUT_timestamp': data['last_triggered']
+                        })
+                else:
+                    reporter.send({
+                        'OUTPUT_trigger': 0,
+                        'OUTPUT_timestamp': time.time()
+                        })
+            '''
+
  
         # loop updates all of the sub_values from pipe
         for sub_name, source_pipe in pipe_map.items():
@@ -224,27 +243,49 @@ def build_shortcut_command(
 
         evaluation = evaluation and condition
 
+        
         if data['action_enabled']:
             if evaluation:
-                if time.time() > data['last_triggered'] + lockout_time / 1000.0:
+                currentTime = time.time()
+                if currentTime > data['last_triggered'] + lockout_time / 1000.0:
                     # we passed lockout time
-                        data['last_triggered'] = time.time()
+                        
                         data['trodes_sender'].request([
                             'tag',
                             'HRSCTrig',
                             {'fn': on_funct_num}
                         ])
-                        print('trigger time')
-                        print(time.time())
+                        #print('trigger time delta')
+                        data['last_triggered'] = time.time()
+                        #print(time.time() - currentTime)
+
+                        triggered = 1
+                        reporter.send({
+                            'OUTPUT_trigger': 1,
+                            'OUTPUT_timestamp': data['last_triggered']
+                        })
                 else:
-                    pass
+                    triggered = 0
+            else:
+                if triggered == 1: #if condition is suddenly not true, sent suppress
+                    if off_funct_num is not None:
+                        data['trodes_sender'].request([
+                                'tag',
+                                'HRSCTrig',
+                                {'fn': off_funct_num}])
+                else:
+                    currentTime = time.time()
+                triggered = 0
         elif not data['action_enabled']:
-            if off_funct_num is not None:
-                data['trodes_sender'].request([
-                        'tag',
-                        'HRSCTrig',
-                        {'fn': off_funct_num}
-                ])
+            if triggered == 1:
+                currentTime = time.time()
+                if off_funct_num is not None:
+                    data['trodes_sender'].request([
+                            'tag',
+                            'HRSCTrig',
+                            {'fn': off_funct_num}
+                    ])
+                triggered = 0              
 
                 
 

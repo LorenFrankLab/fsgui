@@ -295,8 +295,8 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 publisher.send(triggered)
 
                 reporter.send({
-                    'rip_timestamp': item['localTimestamp'],
-                    'rip_triggered': triggered,
+                    'rip_timestamp': item['systemTimestamp'],
+                    'rip_detected': triggered,
                     'rip_lfp_value': lfps[data['display_index']].tolist(),
                     'rip_data': ripple_data[data['display_index']].tolist(),
                     'rip_envelope': envelope[data['display_index']].tolist(),
