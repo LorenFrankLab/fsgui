@@ -255,6 +255,7 @@ class FSGuiWindow(QtWidgets.QMainWindow):
         self.container = qtgui.GuiContainerWidget()
         self.setCentralWidget(self.container)
         self.setWindowTitle('FSGui')
+        self.resize(1000,800)
 
         self.widget = None
         self.__set_config_and_app(config)
