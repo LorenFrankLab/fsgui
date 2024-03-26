@@ -129,9 +129,10 @@ class SpeedFilterType(fsgui.node.NodeTypeObject):
 
         def workload(connection, publisher, reporter, data):
             #item = data['sub'].recv(timeout=500)
+            item = None
             if source_pipe.poll(timeout=1):
                 item = source_pipe.recv()
-
+                
             if item is not None:
                 _, _, speed = data['filter_model'].compute_kinematics(
                     item['x'], item['y'],
@@ -149,9 +150,10 @@ class SpeedFilterType(fsgui.node.NodeTypeObject):
                 triggered = bool(triggered)
 
                 publisher.send(triggered)
-
+                timeStamp = item['timestamp']
                 reporter.send({
-                    'speed': speed
+                    'speed': speed,
+                    'speed_timestamp': timeStamp,
                 })
 
         return fsgui.process.build_process_object(setup, workload)
