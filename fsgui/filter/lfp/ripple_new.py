@@ -36,7 +36,8 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
             'sd_threshold': 3.5,
             'n_above_threshold': 1,
             'tetrode_selection': None,
-            'update_mean_sd': True,
+            'auto_config': True,
+            'sample_mean_sd': False,
             'display_channel': 1,
             'means_magic_input':50,
             'sigmas_magic_input':25,
@@ -198,10 +199,17 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 'default': config['tetrode_selection'],
             },
             {
-                'label': 'Update mean/sd estimate',
-                'name': 'update_mean_sd',
+                'label': 'Tick: use sampled mean/sd; Untick: use input',
+                'name': 'auto_flag',
                 'type': 'boolean',
-                'default': config['update_mean_sd'],
+                'default': True,
+                'live_editable': True,
+            },
+            {
+                'label': 'Sample mean/sd now',
+                'name': 'sample_mean_sd',
+                'type': 'boolean',
+                'default': True,
                 'live_editable': True,
             },
             {
@@ -247,10 +255,12 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
 
         def setup(logging, data):
             data['filter_model'] = rip_filter
-            data['means'] = config['means_magic_input'] + np.zeros(num_signals) #np.zeros(num_signals)
+            data['means'] = np.zeros(num_signals)
             data['M2'] = np.zeros(num_signals)
             data['counts'] = np.zeros(num_signals)
-            data['sigmas'] = config['sigmas_magic_input'] + np.zeros(num_signals) #np.zeros(num_signals)
+            data['sigmas'] = np.zeros(num_signals) + 1 #previously: np.zeros(num_signals), prevent zero
+            data['means_manual'] = config['means_magic_input'] + np.zeros(num_signals)
+            data['sigmas_manual'] = config['sigmas_magic_input'] + np.zeros(num_signals)
 
             data['display_index'] = np.where(tetrode_ids == config['display_channel'] - 1)[0][0]
 
@@ -261,13 +271,16 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                     msg_varname, msg_value = msg_data
                     config[msg_varname] = msg_value
 
+                    if msg_varname == 'auto_flag':
+                        print('Changing between auto/input threshold now')
+
                     if msg_varname == 'means_magic_input':
-                        print('updating magic input ripple mean')
-                        data['means'] = config['means_magic_input'] + np.zeros(num_signals) #np.zeros(num_signals)
+                        print('updating magic input ripple mean to ',config['means_magic_input'])
+                        data['means_manual'] = config['means_magic_input'] + np.zeros(num_signals) #np.zeros(num_signals)
 
                     if msg_varname == 'sigmas_magic_input':
-                        print('updating magic input ripple sigma')
-                        data['sigmas'] = config['sigmas_magic_input'] + np.zeros(num_signals) #np.zeros(num_signals)
+                        print('updating magic input ripple sigma to ',config['sigmas_magic_input'])
+                        data['sigmas_manual'] = config['sigmas_magic_input'] + np.zeros(num_signals) #np.zeros(num_signals)
 
 
                     if msg_varname == 'display_channel':
@@ -279,16 +292,25 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 lfps = np.array(item['lfpData'])[tetrode_ids]
                 ripple_data, envelope = data['filter_model'].add_new_data(lfps)
 
-                if config['update_mean_sd']:
+                # sampling or not
+                if config['sample_mean_sd']:
                     # updates stats
                     data['means'], data['M2'], data['counts']= estimate_new_stats_welford(
                         envelope, data['means'], data['M2'], data['counts']
                     )
                     data['sigmas'] = np.sqrt(data['M2'] / data['counts'])
 
-                z_score_envelope = (envelope - data['means']) / data['sigmas']
+                # triggering
+                if config['auto_flag']:
+                    threshold_mean = data['means']
+                    threshold_sd = data['sigmas']
+                else:
+                    threshold_mean = data['means_manual']
+                    threshold_sd = data['sigmas_manual']
+                z_score_envelope = (envelope - threshold_mean) / threshold_sd
                 n_detected = np.sum(z_score_envelope > config['sd_threshold'])
                 triggered = n_detected >= config['n_above_threshold']
+
 
                 # convert from numpy type to Python type
                 triggered = bool(triggered)
@@ -297,8 +319,8 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
                 reporter.send({
                     'rip_timestamp': item['systemTimestamp'],
                     'rip_detected': triggered,
-                    'rip_lfp_value': lfps[data['display_index']].tolist(),
-                    'rip_data': ripple_data[data['display_index']].tolist(),
+                    'rip_mean_threshold': threshold_mean[data['display_index']].tolist(),
+                    'rip_sd_threshold': threshold_sd[data['display_index']].tolist(),
                     'rip_envelope': envelope[data['display_index']].tolist(),
                     'rip_mean': data['means'][data['display_index']].tolist(),
                     'rip_sd': data['sigmas'][data['display_index']].tolist(),
