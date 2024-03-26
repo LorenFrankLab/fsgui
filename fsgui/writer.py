@@ -16,7 +16,7 @@ class BufferedHDFWriter:
         self.key = key
 
         self.buffer_size = buffer_size
-        self.buffer = np.zeros(shape=(buffer_size,), dtype='double')
+        self.buffer = np.zeros(shape=(buffer_size,), dtype='d') #double on linux86 is float64
         self.index = 0
 
     def append(self, value):
@@ -43,7 +43,7 @@ class HDFWriter:
             if key in node_group:
                 dataset = node_group[key]
             else:
-                dataset = node_group.create_dataset(key, shape=(0,), dtype='f', chunks=(256,), maxshape=(None,))
+                dataset = node_group.create_dataset(key, shape=(0,), dtype='d', chunks=(256,), maxshape=(None,))
             self.dataset_map[tup] = dataset
         return self.dataset_map[tup]
 
