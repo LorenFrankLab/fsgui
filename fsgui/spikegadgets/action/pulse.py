@@ -35,6 +35,7 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                 'functNum': 0,
                 'action_enabled': False,
                 'off_when_false': False,
+                'delay_flag': False,
             }
         )
 
@@ -179,6 +180,14 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                 'live_editable': True,
                 'tooltip': 'Whether or not the stimulation is shut off when false.',
             },
+            {
+                'label': 'Delay',
+                'name': 'delay_flag',
+                'type': 'boolean',
+                'default': config['delay_flag'],
+                'live_editable': True,
+                'tooltip': 'Whether or not the action is 300ms~500ms delayed.',
+            },
         ]
     
     def build(self, config, address_map):
@@ -193,7 +202,8 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
                 train_interval=config['trainInterval'],
                 sequence_period=config['sequencePeriod'],
                 primary_stim_pin=config['primaryBit'],
-                pulse_length=config['pulseLength']
+                pulse_length=config['pulseLength'],
+                delay_flag = config['delay_flag'],
             ),
         })
 
@@ -205,6 +215,7 @@ class DigitalPulseWaveActionType(fsgui.node.NodeTypeObject):
             on_funct_num=config['functNum'],
             action_enabled=config['action_enabled'],
             off_when_false=config['off_when_false'],
+            delay_flag=config['delay_flag'],
             off_funct_num=config['functNum'] + 1,
             condition_tree=config['condition_id'],
         )

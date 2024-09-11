@@ -257,7 +257,7 @@ class RippleFilterType(fsgui.node.NodeTypeObject):
             data['filter_model'] = rip_filter
             data['means'] = np.zeros(num_signals)
             data['M2'] = np.zeros(num_signals)
-            data['counts'] = np.zeros(num_signals)
+            data['counts'] = np.zeros(num_signals) + 1 #add 1 to prevent zero
             data['sigmas'] = np.zeros(num_signals) + 1 #previously: np.zeros(num_signals), prevent zero
             data['means_manual'] = config['means_magic_input'] + np.zeros(num_signals)
             data['sigmas_manual'] = config['sigmas_magic_input'] + np.zeros(num_signals)

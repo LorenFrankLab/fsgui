@@ -1,0 +1,61 @@
+nodes:
+- type_id: trodes-linearized-binned-camera-type
+  instance_id: 47ecacbc-5419-11ee-9d4c-3cecefb199de
+  nickname: Linearized binned Trodes camera
+  track_linearization:
+    filename: /home/lorenlab/Documents/Trodes_stuff/geometries/maze_linear.trackgeometry
+    segments:
+    - !!python/tuple
+      - 0
+      - 0
+    - !!python/tuple
+      - 0
+      - 0
+    - !!python/tuple
+      - 0
+      - 0
+    - !!python/tuple
+      - 0
+      - 0
+    - !!python/tuple
+      - 0
+      - 0
+    - !!python/tuple
+      - 0
+      - 0
+    - !!python/tuple
+      - 0
+      - 0
+    - !!python/tuple
+      - 0
+      - 0
+- type_id: trodes-spike-data-type
+  instance_id: 5d646f30-5419-11ee-9d4c-3cecefb199de
+  nickname: Trodes Spikes
+  voltage_scaling_factor: 0.195
+- type_id: trodes-lfp-data-type
+  instance_id: dde105ce-5419-11ee-9d4c-3cecefb199de
+  nickname: Trodes LFP
+- type_id: ripple-new-filter-type
+  instance_id: d2360494-541a-11ee-9d4c-3cecefb199de
+  nickname: Ripple filter (new)
+  source_id: dde105ce-5419-11ee-9d4c-3cecefb199de
+  num_signals: 64
+  bp_order: 2
+  bp_crit_freqs_low: 150
+  bp_crit_freqs_high: 250
+  lfp_sample_rate: 1500
+  env_num_taps: 13
+  env_band_edges_low: 50
+  env_band_edges_high: 55
+  sd_threshold: 3.5
+  n_above_threshold: 1
+  tetrode_selection:
+    is_include: true
+    tetrodes:
+    - 0
+    - 1
+    - 31
+    - 62
+  update_mean_sd: true
+  display_channel: 1

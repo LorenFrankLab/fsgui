@@ -7,8 +7,9 @@ import time
 
 def generate_statescript(function_num, pre_delay,
                             n_pulses, n_trains,
-                            train_interval, sequence_period, primary_stim_pin, pulse_length):
+                            train_interval, sequence_period, primary_stim_pin, pulse_length, delay_flag):
     """
+    The delayed stim function num is the function_num + 10
     This script was copied and translated from StimConfigureWidget::generateStateScript. The original logic is
     from 2015.
 
@@ -79,10 +80,16 @@ def generate_statescript(function_num, pre_delay,
     script += f'int {train_counter_var} = 1;' + endl
     script += f'int {lockout_var} = 0;' + endl
 
-    script += f'function {function_num}' + endl
     #script += s2 + f'portout[25]=1' + endl
     #script += s2 + f'portout[25]=0' + endl
-    script += s2 + f'if ({lockout_var} == 0) do' + endl
+    if delay_flag:
+        script += f'int r' + endl
+        script += f'function {function_num + 10}' + endl
+        script += f'r = random(200) + 300' + endl
+        script += s2 + f'if ({lockout_var} == 0) do in r' + endl
+    else:
+        script += f'function {function_num}' + endl
+        script += s2 + f'if ({lockout_var} == 0) do' + endl
     script += s4 + f'{lockout_var} = 1' + endl
     script += s4 + f'{go_var} = 1' + endl
     script += s4 + f'{pulse_counter_var} = 1' + endl
@@ -161,6 +168,7 @@ def build_shortcut_command(
         on_funct_num,
         action_enabled,
         off_when_false,
+        delay_flag,
         condition_tree=None,
         off_funct_num=None,
     ):
@@ -177,6 +185,7 @@ def build_shortcut_command(
         # live updated variables
         data['action_enabled'] = action_enabled
         data['off_when_false'] = off_when_false
+        data['delay_flag'] = delay_flag
 
         # runtime variables
         data['last_triggered'] = 0
@@ -243,6 +252,11 @@ def build_shortcut_command(
 
         evaluation = evaluation and condition
 
+        if delay_flag:
+            on_funct_num_effective = 24 + 10;########################################################### on_funct_num + 10
+        else:
+            on_funct_num_effective = 24; ########################################################### on_funct_num
+
         
         if data['action_enabled']:
             if evaluation:
@@ -253,11 +267,11 @@ def build_shortcut_command(
                         data['trodes_sender'].request([
                             'tag',
                             'HRSCTrig',
-                            {'fn': on_funct_num}
+                            {'fn': on_funct_num_effective}
                         ])
-                        #print('trigger time delta')
+                        print('trigger time')
                         data['last_triggered'] = time.time()
-                        #print(time.time() - currentTime)
+                        print(time.time())
 
                         triggered = 1
                         reporter.send({
@@ -265,14 +279,14 @@ def build_shortcut_command(
                             'OUTPUT_timestamp': data['last_triggered']
                         })
                 else:
-                    triggered = 0
+                    pass
             else:
                 if triggered == 1: #if condition is suddenly not true, sent suppress
                     if off_funct_num is not None:
                         data['trodes_sender'].request([
                                 'tag',
                                 'HRSCTrig',
-                                {'fn': off_funct_num}])
+                                {'fn': 25}]) ########################################################### {'fn': off_funct_num}
                 else:
                     currentTime = time.time()
                 triggered = 0
@@ -283,7 +297,7 @@ def build_shortcut_command(
                     data['trodes_sender'].request([
                             'tag',
                             'HRSCTrig',
-                            {'fn': off_funct_num}
+                            {'fn': 25} ########################################################### {'fn': off_funct_num}
                     ])
                 triggered = 0              
 
