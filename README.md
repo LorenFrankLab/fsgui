@@ -1,5 +1,6 @@
 # fsgui
-Feedback and stimulation gui for real time experiment control
+Feedback and stimulation gui for real time experiment control.
+This package works with a [specific version](https://gitlab.com/trevortknguyen/trodes-fsgui-fork) of Trodes.
 
 ## Installing FSGui locally via pip.
 
@@ -25,4 +26,5 @@ pip install --editable .
 
 ## Documentation
 
-Full documentation is located in a separate location.
+[Full documentation is here.](https://docs.google.com/document/d/1yfo4J65WxpfWlnMLRzXw-R4xlYvEjnC-SLvF4gEMujQ/edit?tab=t.0)
+
