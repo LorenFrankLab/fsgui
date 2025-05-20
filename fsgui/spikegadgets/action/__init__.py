@@ -253,9 +253,9 @@ def build_shortcut_command(
         evaluation = evaluation and condition
 
         if delay_flag:
-            on_funct_num_effective = 24 + 10;########################################################### on_funct_num + 10
+            on_funct_num_effective = on_funct_num + 10
         else:
-            on_funct_num_effective = 24; ########################################################### on_funct_num
+            on_funct_num_effective = on_funct_num
 
         
         if data['action_enabled']:
@@ -286,7 +286,7 @@ def build_shortcut_command(
                         data['trodes_sender'].request([
                                 'tag',
                                 'HRSCTrig',
-                                {'fn': 25}]) ########################################################### {'fn': off_funct_num}
+                                 {'fn': off_funct_num}]) ###########################################################
                 else:
                     currentTime = time.time()
                 triggered = 0
@@ -297,7 +297,7 @@ def build_shortcut_command(
                     data['trodes_sender'].request([
                             'tag',
                             'HRSCTrig',
-                            {'fn': 25} ########################################################### {'fn': off_funct_num}
+                            {'fn': off_funct_num} ########################################################### 
                     ])
                 triggered = 0              
 
