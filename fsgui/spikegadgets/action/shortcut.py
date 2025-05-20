@@ -24,6 +24,7 @@ class StateScriptFunctionActionType(fsgui.node.NodeTypeObject):
                 'lockout_time': 0,
                 'functNum': 0,
                 'action_enabled': False,
+                'delay_flag': False,
             }
         )
 
@@ -34,6 +35,7 @@ class StateScriptFunctionActionType(fsgui.node.NodeTypeObject):
             {
                 'type': 'checkbox',
                 'label': 'enabled',
+                'name': 'enabled',
                 'checked': 'start',
                 'unchecked': 'stop',
             }
@@ -93,6 +95,14 @@ class StateScriptFunctionActionType(fsgui.node.NodeTypeObject):
                 'live_editable': True,
                 'tooltip': 'Whether or not the action is enabled.',
             },
+            {
+                'label': 'Delay',
+                'name': 'delay_flag',
+                'type': 'boolean',
+                'default': config['delay_flag'],
+                'live_editable': True,
+                'tooltip': 'Whether or not the action is 300ms~500ms delayed.',
+            },
         ]
 
     def build(self, config, address_map):
@@ -104,4 +114,5 @@ class StateScriptFunctionActionType(fsgui.node.NodeTypeObject):
             on_funct_num=config['functNum'],
             action_enabled=config['action_enabled'],
             off_when_false=False,
+            delay_flag = config['delay_flag'],
         )
